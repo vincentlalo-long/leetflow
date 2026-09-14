@@ -11,6 +11,12 @@ venv/
 *.dll
 *.so
 *.dylib
+leet
+leetcli
+go-cli/leet
+go-cli/leetcli
+bin/
+
 
 # Local machine-specific config (keeps LeetCode cookies out of git)
 config.local.json

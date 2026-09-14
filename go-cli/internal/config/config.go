@@ -25,10 +25,13 @@ type Config struct {
 	DataStructures  map[string]string    `json:"data_structures"`
 	Theme           string               `json:"theme"`
 	Editor          string               `json:"editor"`
+	Terminal        string               `json:"terminal,omitempty"`
+	OpenMode        string               `json:"open_mode,omitempty"`
 	LeetcodeSession string               `json:"leetcode_session,omitempty"`
 	LeetcodeCsrf    string               `json:"leetcode_csrf,omitempty"`
 
-	path string
+	path            string
+	hasLocalConfig  bool
 }
 
 // Load reads the base config (config.json) and overlays the local, git-ignored
@@ -62,6 +65,7 @@ func Load(path string) (*Config, error) {
 	// Save() always writes to this local file so secrets never reach git.
 	localPath := filepath.Join(dir, localConfigName)
 	if _, err := os.Stat(localPath); err == nil {
+		cfg.hasLocalConfig = true
 		if data, err := os.ReadFile(localPath); err == nil {
 			var local map[string]interface{}
 			if json.Unmarshal(data, &local) == nil {
@@ -92,6 +96,12 @@ func applyOverlay(cfg *Config, overlay map[string]interface{}) {
 	}
 	if v, ok := overlay["editor"].(string); ok && v != "" {
 		cfg.Editor = v
+	}
+	if v, ok := overlay["terminal"].(string); ok && v != "" {
+		cfg.Terminal = v
+	}
+	if v, ok := overlay["open_mode"].(string); ok && v != "" {
+		cfg.OpenMode = v
 	}
 	if v, ok := overlay["theme"].(string); ok && v != "" {
 		cfg.Theme = v
@@ -130,16 +140,33 @@ func applyOverlay(cfg *Config, overlay map[string]interface{}) {
 	}
 }
 
+// ExpandHome replaces leading ~/ with the user's home directory path.
+func ExpandHome(path string) string {
+	if strings.HasPrefix(path, "~/") || path == "~" {
+		home, err := os.UserHomeDir()
+		if err == nil {
+			if path == "~" {
+				return home
+			}
+			return filepath.Join(home, path[2:])
+		}
+	}
+	return path
+}
+
 // ResolveBaseDir makes base_dir machine-independent: if it is empty or the
 // directory does not exist, walk up from the config file to find the repo root
 // (the directory containing .git).
 func (c *Config) ResolveBaseDir() {
 	if c.BaseDir != "" {
+		c.BaseDir = ExpandHome(c.BaseDir)
 		if info, err := os.Stat(c.BaseDir); err == nil && info.IsDir() {
 			return
 		}
 	}
-	c.BaseDir = DetectBaseDir(c.path)
+	if c.BaseDir == "" {
+		c.BaseDir = DetectBaseDir(c.path)
+	}
 }
 
 func DetectBaseDir(configPath string) string {
@@ -299,3 +326,34 @@ func (c *Config) GetLeetcodeCsrf() string {
 	}
 	return c.LeetcodeCsrf
 }
+
+func (c *Config) HasLocalConfig() bool {
+	return c.hasLocalConfig
+}
+
+func (c *Config) NeedsSetup() bool {
+	return !c.hasLocalConfig || c.BaseDir == ""
+}
+
+func (c *Config) GetTerminal() string {
+	if c.Terminal == "" {
+		return "kitty"
+	}
+	return c.Terminal
+}
+
+func (c *Config) SetTerminal(term string) {
+	c.Terminal = term
+}
+
+func (c *Config) GetOpenMode() string {
+	if c.OpenMode == "" {
+		return "auto"
+	}
+	return c.OpenMode
+}
+
+func (c *Config) SetOpenMode(mode string) {
+	c.OpenMode = mode
+}
+

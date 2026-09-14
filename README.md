@@ -6,13 +6,12 @@ Terminal tool to organize, solve, test, and submit LeetCode problems. Solutions 
 
 Requires [Go 1.25+](https://go.dev/dl/).
 
-```powershell
-cd go-cli
-go build -o leet.exe .
+### Linux / macOS:
+```bash
+./go-cli/build.sh
 ```
 
-Or install to `%GOPATH%\bin` (works from any directory):
-
+### Windows (PowerShell):
 ```powershell
 powershell -ExecutionPolicy Bypass -File go-cli\build.ps1
 ```
@@ -20,8 +19,9 @@ powershell -ExecutionPolicy Bypass -File go-cli\build.ps1
 ## Quick Start
 
 ```bash
+leet init               # interactive setup wizard (first-time)
 leet add 1              # create file + README for Two Sum
-leet open 1             # open in editor
+leet open 1             # open workspace (auto tiling on Linux / Hyprland)
 leet test 1 --local     # test locally (no cookies needed)
 leet submit 1           # submit to LeetCode (needs cookies)
 leet sync               # git commit + push
@@ -31,6 +31,7 @@ leet sync               # git commit + push
 
 | Command | Description |
 |---------|-------------|
+| `leet init` | First-run setup wizard |
 | `leet add <num>` | Add problem from LeetCode |
 | `leet daily` | Today's daily challenge |
 | `leet random` | Random problem |

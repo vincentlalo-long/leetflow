@@ -247,7 +247,7 @@ func truncate(s string, n int) string {
 func compileAndRun(langKey, dir, srcPath, payloadPath string) (string, error) {
 	switch langKey {
 	case "python":
-		return runCmdOutput("python", srcPath, payloadPath)
+		return runCmdOutput(detectPythonCmd(), srcPath, payloadPath)
 
 	case "javascript":
 		return runCmdOutput("node", srcPath, payloadPath)

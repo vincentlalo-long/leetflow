@@ -136,7 +136,7 @@ func RunProblem(args []string, cfg *config.Config, ui UI) error {
 
 	case "python":
 		ui.WriteOutput(MsgPlain, "\n--- Output ---\n")
-		cmd := exec.Command("python", targetFile)
+		cmd := exec.Command(detectPythonCmd(), targetFile)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		cmd.Stdin = os.Stdin
@@ -233,3 +233,12 @@ func RunProblem(args []string, cfg *config.Config, ui UI) error {
 	}
 	return nil
 }
+
+// detectPythonCmd returns "python3" if available, falling back to "python".
+func detectPythonCmd() string {
+	if _, err := exec.LookPath("python3"); err == nil {
+		return "python3"
+	}
+	return "python"
+}
+

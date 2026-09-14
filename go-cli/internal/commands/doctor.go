@@ -19,26 +19,26 @@ func DoctorCommand(args []string, cfg *config.Config, ui UI) error {
 	problems := 0
 	fixable := 0
 
-	// 1. Config file existence.
+	// 1. Config file status.
 	configPath := cfg.GetPath()
-	if _, err := os.Stat(configPath); os.IsNotExist(err) {
-		ui.WriteOutput(MsgError, "Config file not found: %s", configPath)
-		problems++
+	if cfg.HasLocalConfig() {
+		ui.WriteOutput(MsgSuccess, "Local config active: %s", filepath.Base(configPath))
 	} else {
-		ui.WriteOutput(MsgSuccess, "Config file exists: %s", filepath.Base(configPath))
+		ui.WriteOutput(MsgInfo, "Using base config (run 'leet init' to create machine-specific %s)", filepath.Base(configPath))
 	}
 
 	// 2. Base directory.
+	expandedBase := config.ExpandHome(cfg.BaseDir)
 	if cfg.BaseDir == "" {
-		ui.WriteOutput(MsgError, "base_dir is not configured")
+		ui.WriteOutput(MsgError, "base_dir is not configured (run 'leet init')")
 		problems++
 		fixable++
-	} else if _, err := os.Stat(cfg.BaseDir); os.IsNotExist(err) {
-		ui.WriteOutput(MsgError, "base_dir does not exist: %s", cfg.BaseDir)
+	} else if _, err := os.Stat(expandedBase); os.IsNotExist(err) {
+		ui.WriteOutput(MsgError, "base_dir does not exist: %s (run 'leet init' to create)", expandedBase)
 		problems++
 		fixable++
 	} else {
-		ui.WriteOutput(MsgSuccess, "base_dir exists: %s", cfg.BaseDir)
+		ui.WriteOutput(MsgSuccess, "base_dir exists: %s", expandedBase)
 	}
 
 	// 3. Default language.
@@ -101,19 +101,19 @@ func DoctorCommand(args []string, cfg *config.Config, ui UI) error {
 		ui.WriteOutput(MsgSuccess, "%d language(s) configured", len(langs))
 	}
 
-	if cfg.BaseDir == "" {
+	if expandedBase == "" {
 		ui.WriteOutput(MsgInfo, "Skipping workspace scan (base_dir not set)")
 		return fmt.Errorf("base_dir not configured")
 	}
 
 	// 8. Scan workspace for issues.
 	ui.WriteOutput(MsgPlain, "\nScanning workspace...")
-	scanIssues := scanWorkspace(cfg.BaseDir, ds, exts, ui)
+	scanIssues := scanWorkspace(expandedBase, ds, exts, ui)
 	problems += scanIssues
 
 	// 9. Check .gitignore has config.local.json.
 	ui.WriteOutput(MsgPlain, "")
-	leetcodercPath := filepath.Join(cfg.BaseDir, ".gitignore")
+	leetcodercPath := filepath.Join(expandedBase, ".gitignore")
 	if _, err := os.Stat(leetcodercPath); err == nil {
 		if data, err := os.ReadFile(leetcodercPath); err == nil {
 			if strings.Contains(string(data), "config.local.json") {

@@ -38,7 +38,7 @@ func CompletionCommand(args []string, cfg *config.Config, ui UI) error {
 	}
 
 	ui.WriteOutput(MsgInfo, "Add the output to your shell's completion config:")
-	ui.WriteOutput(MsgInfo, "  bash: source <(leet completion bash)  >> ~/.bashrc")
+	ui.WriteOutput(MsgInfo, "  bash: leet completion bash >> ~/.bashrc")
 	ui.WriteOutput(MsgInfo, "  zsh:  leet completion zsh > ~/.zfunc/_leet")
 	ui.WriteOutput(MsgInfo, "  fish: leet completion fish > ~/.config/fish/completions/leet.fish")
 	return nil

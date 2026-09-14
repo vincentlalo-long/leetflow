@@ -30,6 +30,8 @@ type UI interface {
 type Handler func(args []string, cfg *config.Config, ui UI) error
 
 var Registry = map[string]Handler{
+	"init":              InitCommand,
+	"setup":             InitCommand,
 	"add":               AddProblem,
 	"add-sol":           AddSolution,
 	"list":              ListProblems,

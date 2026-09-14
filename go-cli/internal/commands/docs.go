@@ -20,6 +20,13 @@ type CommandDoc struct {
 // commands package so both the TUI (ui package) and the headless CLI can
 // render help without an import cycle.
 var CommandDocs = map[string]CommandDoc{
+	"init": {
+		Name:        "init",
+		Summary:     "Run interactive first-time setup wizard",
+		Usage:       "init [--dir <path>] [--editor <editor>] [--lang <lang>] [--terminal <term>]",
+		Description: "Configures machine-specific settings like solution workspace directory, code editor, and terminal layout, saving them safely to config.local.json without touching git.",
+		Examples:    []string{"init", "init --dir ~/leetcode --editor nvim"},
+	},
 	"add": {
 		Name:        "add",
 		Summary:     "Create a new problem workspace file & README",
@@ -234,7 +241,7 @@ var CommandDocs = map[string]CommandDoc{
 
 // CommandOrder is the canonical order used when listing commands in help.
 var CommandOrder = []string{
-	"add", "add-sol", "list", "search", "manage-structures",
+	"init", "add", "add-sol", "list", "search", "manage-structures",
 	"stats", "theme", "daily", "random", "hint", "similar",
 	"open", "web", "run", "test", "submit", "verify", "timer", "note", "review",
 	"sync", "clean", "readme", "doctor", "profile", "contest", "config",

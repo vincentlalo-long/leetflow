@@ -34,6 +34,20 @@ func main() {
 				}
 				return
 			}
+
+			// Automatically run first-run setup if workspace is not yet configured
+			if cfg.NeedsSetup() && !isMetaCommand(cmdName) {
+				fmt.Println("ℹ Workspace is not configured yet. Starting first-run setup...")
+				fmt.Println("")
+				if err := commands.Registry["init"](nil, cfg, commands.HeadlessUI{}); err != nil {
+					os.Exit(1)
+				}
+				if reloaded, err := config.Load(""); err == nil && reloaded != nil {
+					cfg = reloaded
+				}
+				fmt.Println("--------------------------------------------")
+			}
+
 			if err := handler(args, cfg, commands.HeadlessUI{}); err != nil {
 				os.Exit(1)
 			}
@@ -62,3 +76,12 @@ func wantsHelp(args []string) bool {
 	}
 	return false
 }
+
+func isMetaCommand(cmd string) bool {
+	switch cmd {
+	case "init", "setup", "help", "man", "--help", "-h", "version", "--version", "-v", "completion":
+		return true
+	}
+	return false
+}
+

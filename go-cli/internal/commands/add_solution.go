@@ -3,7 +3,6 @@ package commands
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 
 	"leetcli/internal/config"
@@ -104,13 +103,9 @@ func AddSolution(args []string, cfg *config.Config, ui UI) error {
 	ui.WriteOutput(MsgSuccess, fmt.Sprintf("Added Solution %d template to %s", solNum, filepath.Base(filePath)))
 
 	editor := cfg.GetEditor()
-	ui.WriteOutput(MsgInfo, "Opening %s in editor (%s)...", filepath.Base(filePath), editor)
-
-	cmd := exec.Command(editor, filePath)
-	if err := cmd.Start(); err != nil {
-		ui.WriteOutput(MsgError, "Failed to launch editor '%s': %v", editor, err)
+	if err := openStandardEditor(editor, filePath, ui); err != nil {
 		ui.WriteOutput(MsgInfo, "File path: %s", filePath)
-		return fmt.Errorf("failed to launch editor '%s': %w", editor, err)
+		return err
 	}
 
 	ui.WriteOutput(MsgSuccess, "Opened file in editor! You can now write or paste your solution code there.")

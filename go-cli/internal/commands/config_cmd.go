@@ -2,7 +2,6 @@ package commands
 
 import (
 	"fmt"
-	"os/exec"
 	"strings"
 
 	"leetcli/internal/config"
@@ -147,13 +146,9 @@ func showConfig(cfg *config.Config, ui UI) {
 func openConfig(cfg *config.Config, ui UI) error {
 	editor := cfg.GetEditor()
 	configPath := cfg.GetPath()
-	ui.WriteOutput(MsgInfo, "Opening %s in editor (%s)...", configPath, editor)
-
-	cmd := exec.Command(editor, configPath)
-	if err := cmd.Start(); err != nil {
-		ui.WriteOutput(MsgError, "Failed to launch editor '%s': %v", editor, err)
+	if err := openStandardEditor(editor, configPath, ui); err != nil {
 		ui.WriteOutput(MsgInfo, "Config file location: %s", configPath)
-		return fmt.Errorf("failed to launch editor '%s': %w", editor, err)
+		return err
 	}
 	ui.WriteOutput(MsgSuccess, "Config file opened in editor!")
 	return nil

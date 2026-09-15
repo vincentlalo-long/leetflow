@@ -6,14 +6,16 @@ Terminal tool to organize, solve, test, and submit LeetCode problems. Solutions 
 
 Requires [Go 1.25+](https://go.dev/dl/).
 
-### Linux / macOS:
+### Quick Install (Linux / macOS):
 ```bash
-./go-cli/build.sh
+make install
+# or: ./build.sh
 ```
 
 ### Windows (PowerShell):
 ```powershell
-powershell -ExecutionPolicy Bypass -File go-cli\build.ps1
+powershell -ExecutionPolicy Bypass -File build.ps1
+# or: go build -o leet.exe .
 ```
 
 ## Quick Start

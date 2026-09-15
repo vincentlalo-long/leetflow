@@ -11,11 +11,14 @@ venv/
 *.dll
 *.so
 *.dylib
+*.class
+*.o
+*.tmp
+a.out
 leet
 leetcli
-go-cli/leet
-go-cli/leetcli
 bin/
+dist/
 
 
 # Local machine-specific config (keeps LeetCode cookies out of git)

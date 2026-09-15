@@ -12,8 +12,8 @@ import (
 var ignoredDirs = map[string]bool{
 	".git":           true,
 	".github":        true,
-	"go-cli":         true,
-	"python_version": true,
+	"internal":       true,
+	"dist":           true,
 	"extension":      true,
 	"node_modules":   true,
 	"scratch":        true,

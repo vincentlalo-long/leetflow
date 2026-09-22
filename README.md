@@ -1,6 +1,6 @@
-# leetloop
+# leetflow
 
-[![CI](https://github.com/vincentlalo-long/template-custom-leetcode/actions/workflows/ci.yml/badge.svg)](https://github.com/vincentlalo-long/template-custom-leetcode/actions)
+[![CI](https://github.com/vincentlalo-long/leetflow/actions/workflows/ci.yml/badge.svg)](https://github.com/vincentlalo-long/leetflow/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go)](https://go.dev/)
 
@@ -26,22 +26,22 @@ Solutions are stored as plain source files on disk, organized by data structure,
 Requires [Go 1.25+](https://go.dev/dl/).
 
 ### Pre-built Binaries (GitHub Releases)
-Download the latest pre-built binary for Linux, macOS, or Windows from the [Releases](https://github.com/vincentlalo-long/template-custom-leetcode/releases) page.
+Download the latest pre-built binary for Linux, macOS, or Windows from the [Releases](https://github.com/vincentlalo-long/leetflow/releases) page.
 
 ### Build from Source
 
 #### Linux / macOS:
 ```bash
-git clone https://github.com/vincentlalo-long/template-custom-leetcode.git
-cd template-custom-leetcode
+git clone https://github.com/vincentlalo-long/leetflow.git
+cd leetflow
 make install
 # or: ./build.sh
 ```
 
 #### Windows (PowerShell):
 ```powershell
-git clone https://github.com/vincentlalo-long/template-custom-leetcode.git
-cd template-custom-leetcode
+git clone https://github.com/vincentlalo-long/leetflow.git
+cd leetflow
 powershell -ExecutionPolicy Bypass -File build.ps1
 # or: go build -o leet.exe .
 ```

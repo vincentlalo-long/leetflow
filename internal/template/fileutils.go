@@ -10,16 +10,16 @@ import (
 )
 
 var ignoredDirs = map[string]bool{
-	".git":           true,
-	".github":        true,
-	"internal":       true,
-	"dist":           true,
-	"extension":      true,
-	"node_modules":   true,
-	"scratch":        true,
-	".vscode":        true,
-	".idea":          true,
-	"bin":            true,
+	".git":         true,
+	".github":      true,
+	"internal":     true,
+	"dist":         true,
+	"extension":    true,
+	"node_modules": true,
+	"scratch":      true,
+	".vscode":      true,
+	".idea":        true,
+	"bin":          true,
 }
 
 func IsIgnoredDir(name string) bool {

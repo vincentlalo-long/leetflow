@@ -30,8 +30,8 @@ type Config struct {
 	LeetcodeSession string               `json:"leetcode_session,omitempty"`
 	LeetcodeCsrf    string               `json:"leetcode_csrf,omitempty"`
 
-	path            string
-	hasLocalConfig  bool
+	path           string
+	hasLocalConfig bool
 }
 
 // Load reads the base config (config.json) and overlays the local, git-ignored
@@ -50,6 +50,14 @@ func Load(path string) (*Config, error) {
 			if _, err := os.Stat(p); err == nil {
 				dir = filepath.Dir(p)
 				break
+			}
+		}
+		if dir == "" {
+			if uDir, err := os.UserConfigDir(); err == nil {
+				candidate := filepath.Join(uDir, "leet", "config.json")
+				if _, err := os.Stat(candidate); err == nil {
+					dir = filepath.Dir(candidate)
+				}
 			}
 		}
 	}
@@ -208,22 +216,22 @@ func Default() *Config {
 			"csharp":     {Label: "C#", Ext: "cs"},
 		},
 		DataStructures: map[string]string{
-			"array":       "array",
-			"string":      "string",
-			"linkedlist":  "linked_list",
-			"stack":       "stack",
-			"queue":       "queue",
-			"graph":       "graph",
-			"tree":        "tree",
-			"heap":        "heap",
-			"hash":        "hash",
-			"dp":          "dp",
-			"binary":      "binary",
-			"two-pointer": "two_pointers",
-			"sliding":     "sliding_window",
+			"array":        "array",
+			"string":       "string",
+			"linkedlist":   "linked_list",
+			"stack":        "stack",
+			"queue":        "queue",
+			"graph":        "graph",
+			"tree":         "tree",
+			"heap":         "heap",
+			"hash":         "hash",
+			"dp":           "dp",
+			"binary":       "binary",
+			"two-pointer":  "two_pointers",
+			"sliding":      "sliding_window",
 			"backtracking": "backtracking",
-			"greedy":      "greedy",
-			"math":        "math",
+			"greedy":       "greedy",
+			"math":         "math",
 		},
 	}
 }
@@ -254,7 +262,11 @@ func (c *Config) Save() error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(c.GetPath(), data, 0644)
+	targetPath := c.GetPath()
+	if dir := filepath.Dir(targetPath); dir != "" {
+		_ = os.MkdirAll(dir, 0700)
+	}
+	return os.WriteFile(targetPath, data, 0600)
 }
 
 func (c *Config) GetDataStructures() map[string]string {
@@ -356,4 +368,3 @@ func (c *Config) GetOpenMode() string {
 func (c *Config) SetOpenMode(mode string) {
 	c.OpenMode = mode
 }
-

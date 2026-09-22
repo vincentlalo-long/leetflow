@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	graphqlURL = "https://leetcode.com/graphql"
+	graphqlURL  = "https://leetcode.com/graphql"
 	problemsURL = "https://leetcode.com/api/problems/all/"
 	userAgent   = "Mozilla/5.0"
 )
@@ -116,10 +116,10 @@ type TopicTag struct {
 type dailyResp struct {
 	Data struct {
 		ActiveDailyCodingChallengeQuestion struct {
-			Date     string `json:"date"`
+			Date       string `json:"date"`
 			UserStatus string `json:"userStatus"`
-			Link     string `json:"link"`
-			Question struct {
+			Link       string `json:"link"`
+			Question   struct {
 				QuestionID         string     `json:"questionId"`
 				QuestionFrontendID string     `json:"questionFrontendId"`
 				Title              string     `json:"title"`
@@ -196,7 +196,7 @@ func GetProblemDetails(slug string) (*ProblemDetail, error) {
 		}
 	}`
 	payload := map[string]interface{}{
-		"query": query,
+		"query":     query,
 		"variables": map[string]string{"titleSlug": slug},
 	}
 	var resp problemDetailResp
@@ -275,7 +275,7 @@ func GetUserProfile(username string) (*UserProfileResp, error) {
 		}
 	}`
 	payload := map[string]interface{}{
-		"query": query,
+		"query":     query,
 		"variables": map[string]string{"username": username},
 	}
 	var resp UserProfileResp
@@ -482,7 +482,7 @@ func GetProblemTestcases(slug string) (string, error) {
 		}
 	}`
 	payload := map[string]interface{}{
-		"query": query,
+		"query":     query,
 		"variables": map[string]string{"titleSlug": slug},
 	}
 	var resp editorDataResp
@@ -498,4 +498,3 @@ func GetProblemTestcases(slug string) (string, error) {
 	}
 	return q.SampleTestCase, nil
 }
-

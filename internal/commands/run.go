@@ -241,4 +241,3 @@ func detectPythonCmd() string {
 	}
 	return "python"
 }
-

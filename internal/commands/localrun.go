@@ -19,10 +19,10 @@ import (
 // runLocalHarness runs the solution against the example test cases locally,
 // without requiring LeetCode cookies. Supported flow:
 //
-//	1. parse the entry method signature from the solution file
-//	2. extract Input/Output examples from the problem description
-//	3. generate a self-contained harness for the solution's language
-//	4. compile & execute it, then compare each result with the expected JSON
+//  1. parse the entry method signature from the solution file
+//  2. extract Input/Output examples from the problem description
+//  3. generate a self-contained harness for the solution's language
+//  4. compile & execute it, then compare each result with the expected JSON
 //
 // Returns ok=false when the language/harness is unsupported or no examples found.
 func runLocalHarness(cfg *config.Config, ui UI, targetFile, content, slug string) bool {

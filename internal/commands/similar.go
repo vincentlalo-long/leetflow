@@ -10,9 +10,9 @@ import (
 )
 
 type SimilarProblem struct {
-	Title       string `json:"title"`
-	TitleSlug   string `json:"titleSlug"`
-	Difficulty  string `json:"difficulty"`
+	Title      string `json:"title"`
+	TitleSlug  string `json:"titleSlug"`
+	Difficulty string `json:"difficulty"`
 }
 
 func Similar(args []string, cfg *config.Config, ui UI) error {

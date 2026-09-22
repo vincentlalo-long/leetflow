@@ -12,24 +12,24 @@ import (
 
 // ProgressEntry tracks the solving status and review state of one problem.
 type ProgressEntry struct {
-	Number       string   `json:"number"`
-	Title        string   `json:"title"`
-	Slug         string   `json:"slug"`
-	Difficulty   string   `json:"difficulty"`
-	Category     string   `json:"category"`
-	Tags         []string `json:"tags,omitempty"`
-	Status       string   `json:"status"` // unsolved | solved
-	SolvedDate   string   `json:"solved_date,omitempty"`
-	LastAccepted string   `json:"last_accepted,omitempty"`
-	LastRuntime  string   `json:"last_runtime,omitempty"`
-	LastMemory   string   `json:"last_memory,omitempty"`
-	BestRuntime  string   `json:"best_runtime,omitempty"`
-	BestMemory   string   `json:"best_memory,omitempty"`
-	Submissions  int      `json:"submissions"`
-	AcceptedCount int     `json:"accepted_count"`
-	ReviewCount  int      `json:"review_count"`
-	LastReviewed string   `json:"last_reviewed,omitempty"`
-	NextReview   string   `json:"next_review,omitempty"`
+	Number        string   `json:"number"`
+	Title         string   `json:"title"`
+	Slug          string   `json:"slug"`
+	Difficulty    string   `json:"difficulty"`
+	Category      string   `json:"category"`
+	Tags          []string `json:"tags,omitempty"`
+	Status        string   `json:"status"` // unsolved | solved
+	SolvedDate    string   `json:"solved_date,omitempty"`
+	LastAccepted  string   `json:"last_accepted,omitempty"`
+	LastRuntime   string   `json:"last_runtime,omitempty"`
+	LastMemory    string   `json:"last_memory,omitempty"`
+	BestRuntime   string   `json:"best_runtime,omitempty"`
+	BestMemory    string   `json:"best_memory,omitempty"`
+	Submissions   int      `json:"submissions"`
+	AcceptedCount int      `json:"accepted_count"`
+	ReviewCount   int      `json:"review_count"`
+	LastReviewed  string   `json:"last_reviewed,omitempty"`
+	NextReview    string   `json:"next_review,omitempty"`
 }
 
 // Progress is the on-disk state, stored in <base_dir>/.leet/progress.json.
@@ -179,6 +179,15 @@ func (p *Progress) MarkReviewed(number string) bool {
 	return true
 }
 
+func compareProblemNumbers(a, b string) bool {
+	na, errA := strconv.Atoi(a)
+	nb, errB := strconv.Atoi(b)
+	if errA == nil && errB == nil {
+		return na < nb
+	}
+	return a < b
+}
+
 // DueReviews returns solved problems whose next review date is today or earlier.
 func (p *Progress) DueReviews() []*ProgressEntry {
 	today := time.Now().Format("2006-01-02")
@@ -193,7 +202,7 @@ func (p *Progress) DueReviews() []*ProgressEntry {
 	}
 	sort.Slice(due, func(i, j int) bool {
 		if due[i].Number != due[j].Number {
-			return due[i].Number < due[j].Number
+			return compareProblemNumbers(due[i].Number, due[j].Number)
 		}
 		return due[i].Title < due[j].Title
 	})
@@ -208,7 +217,7 @@ func (p *Progress) All() []*ProgressEntry {
 	}
 	sort.Slice(out, func(i, j int) bool {
 		if out[i].Number != out[j].Number {
-			return out[i].Number < out[j].Number
+			return compareProblemNumbers(out[i].Number, out[j].Number)
 		}
 		return out[i].Title < out[j].Title
 	})

@@ -102,3 +102,22 @@ func TestProgressPath(t *testing.T) {
 		t.Errorf("Path = %q", got)
 	}
 }
+
+func TestSortingNumeric(t *testing.T) {
+	p := Load(t.TempDir())
+	p.Upsert("", "10", "Regular Expression Matching", "regex", "Hard", "dp", nil, "solved", "1 ms", "1 MB")
+	p.Upsert("", "2", "Add Two Numbers", "add-two-numbers", "Medium", "linked_list", nil, "solved", "1 ms", "1 MB")
+	p.Upsert("", "1", "Two Sum", "two-sum", "Easy", "array", nil, "solved", "1 ms", "1 MB")
+	p.Upsert("", "20", "Valid Parentheses", "valid-parentheses", "Easy", "stack", nil, "solved", "1 ms", "1 MB")
+
+	all := p.All()
+	if len(all) != 4 {
+		t.Fatalf("All len = %d, want 4", len(all))
+	}
+	expected := []string{"1", "2", "10", "20"}
+	for i, want := range expected {
+		if all[i].Number != want {
+			t.Errorf("all[%d].Number = %q, want %q", i, all[i].Number, want)
+		}
+	}
+}

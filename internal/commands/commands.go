@@ -71,5 +71,3 @@ var Registry = map[string]Handler{
 	"--help":            HelpCommand,
 	"-h":                HelpCommand,
 }
-
-

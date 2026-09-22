@@ -366,7 +366,7 @@ func ExtractExamples(contentHTML string) []Example {
 			continue
 		}
 		outIdx += inIdx
-		inText := block[inIdx+len("input:"):outIdx]
+		inText := block[inIdx+len("input:") : outIdx]
 		outText := block[outIdx+len("output:"):]
 		if m := strongTagRe.FindStringIndex(outText); m != nil {
 			outText = outText[:m[0]]

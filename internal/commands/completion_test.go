@@ -13,9 +13,9 @@ type fakeUI struct {
 	written strings.Builder
 }
 
-func (f *fakeUI) PromptText(label string) string                          { return "" }
-func (f *fakeUI) PromptSelect(label string, choices []string) string      { return "" }
-func (f *fakeUI) PromptConfirm(label string) bool                         { return false }
+func (f *fakeUI) PromptText(label string) string                     { return "" }
+func (f *fakeUI) PromptSelect(label string, choices []string) string { return "" }
+func (f *fakeUI) PromptConfirm(label string) bool                    { return false }
 func (f *fakeUI) WriteOutput(kind MsgKind, format string, args ...interface{}) {
 	f.written.WriteString(fmt.Sprintf(format, args...))
 }

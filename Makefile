@@ -32,6 +32,11 @@ vet:
 	@echo "==> Running go vet..."
 	$(GO) vet ./...
 
+## fmt: Format codebase with gofmt
+fmt:
+	@echo "==> Formatting code..."
+	gofmt -w .
+
 ## run: Run the TUI directly with go run
 run:
 	$(GO) run . $(ARGS)

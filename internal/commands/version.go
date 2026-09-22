@@ -5,7 +5,7 @@ import (
 )
 
 // Version is the semantic version of the Leet CLI.
-var Version = "0.2.0"
+var Version = "0.3.0"
 
 // VersionCommand prints the CLI version and build info.
 func VersionCommand(args []string, cfg *config.Config, ui UI) error {

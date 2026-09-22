@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	fsrs "github.com/open-spaced-repetition/go-fsrs"
 	"leetcli/internal/config"
 	"leetcli/internal/template"
 	"leetcli/internal/tracker"
@@ -68,7 +69,17 @@ func ReviewQueue(args []string, cfg *config.Config, ui UI) error {
 	// Mark a specific problem as reviewed.
 	if len(pos) > 0 {
 		num := pos[0]
-		if !prog.MarkReviewed(num) {
+		var rating fsrs.Rating
+		if g, ok := flags["grade"]; ok && g != "" {
+			rating = parseGrade(g)
+		} else if g, ok := flags["g"]; ok && g != "" {
+			rating = parseGrade(g)
+		} else {
+			rating = promptRating(ui, num)
+		}
+
+		entry, days, ok := prog.MarkReviewedFSRS(num, rating)
+		if !ok {
 			ui.WriteOutput(MsgError, "Problem %s is not in the progress tracker. Mark it solved first (review --solve %s).", num, num)
 			return fmt.Errorf("problem %s is not in the progress tracker", num)
 		}
@@ -76,8 +87,8 @@ func ReviewQueue(args []string, cfg *config.Config, ui UI) error {
 			ui.WriteOutput(MsgError, "Failed to save progress: %v", err)
 			return fmt.Errorf("failed to save progress: %w", err)
 		}
-		ui.WriteOutput(MsgSuccess, "Problem %s marked as reviewed!", num)
-		showNextReview(ui, prog, num)
+		ui.WriteOutput(MsgSuccess, "Problem %s reviewed with grade [%s]!", num, rating.String())
+		ui.WriteOutput(MsgInfo, "Next review in %d day(s) on %s (Stability: %.1fd).", days, entry.NextReview, entry.Stability)
 		return nil
 	}
 
@@ -89,17 +100,19 @@ func ReviewQueue(args []string, cfg *config.Config, ui UI) error {
 			ui.WriteOutput(MsgInfo, "No tracked problems yet. Use 'submit' or 'review --solve' to add some.")
 			return nil
 		}
-		today := time.Now().Format("2006-01-02")
-		ui.WriteOutput(MsgPlain, "\nTracked problems:")
+		now := time.Now()
+		today := now.Format("2006-01-02")
+		ui.WriteOutput(MsgPlain, "\nTracked problems (FSRS Spaced Repetition):")
 		for _, e := range entries {
 			dueMark := " "
 			if e.Status == "solved" && (e.NextReview == "" || e.NextReview <= today) {
 				dueMark = "●"
 			}
 			state := e.Status
+			retention := int(e.Retrievability(now) * 100)
 			ui.WriteOutput(MsgPlain, "  %s %s. %s (%s, %s, %d reviews)", dueMark, e.Number, e.Title, e.Difficulty, state, e.ReviewCount)
 			if e.LastReviewed != "" || e.NextReview != "" {
-				ui.WriteOutput(MsgPlain, "       Last reviewed: %s | Next: %s", orDash(e.LastReviewed), orDash(e.NextReview))
+				ui.WriteOutput(MsgPlain, "       Recall: %d%% | Next: %s | Stability: %.1fd | Last rating: %s", retention, orDash(e.NextReview), e.Stability, orDash(e.LastRating))
 			}
 		}
 		return nil
@@ -114,7 +127,7 @@ func ReviewQueue(args []string, cfg *config.Config, ui UI) error {
 		for _, e := range due {
 			ui.WriteOutput(MsgPlain, "  %s. %s (%s)", e.Number, e.Title, e.Difficulty)
 		}
-		ui.WriteOutput(MsgInfo, "To mark reviewed: review <number>")
+		ui.WriteOutput(MsgInfo, "To mark reviewed: review <number> [--grade again|hard|good|easy]")
 		return nil
 	}
 
@@ -145,15 +158,59 @@ func ReviewQueue(args []string, cfg *config.Config, ui UI) error {
 	if num == "" {
 		return nil
 	}
-	if prog.MarkReviewed(num) {
+
+	var rating fsrs.Rating
+	if g, ok := flags["grade"]; ok && g != "" {
+		rating = parseGrade(g)
+	} else if g, ok := flags["g"]; ok && g != "" {
+		rating = parseGrade(g)
+	} else {
+		rating = promptRating(ui, num)
+	}
+
+	entry, days, ok := prog.MarkReviewedFSRS(num, rating)
+	if ok {
 		if err := prog.Save(baseDir); err != nil {
 			ui.WriteOutput(MsgError, "Failed to save progress: %v", err)
 			return fmt.Errorf("failed to save progress: %w", err)
 		}
-		ui.WriteOutput(MsgSuccess, "Problem %s marked as reviewed!", num)
-		showNextReview(ui, prog, num)
+		ui.WriteOutput(MsgSuccess, "Problem %s reviewed with grade [%s]!", num, rating.String())
+		ui.WriteOutput(MsgInfo, "Next review in %d day(s) on %s (Stability: %.1fd).", days, entry.NextReview, entry.Stability)
 	}
 	return nil
+}
+
+func parseGrade(s string) fsrs.Rating {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "1", "again", "a":
+		return fsrs.Again
+	case "2", "hard", "h":
+		return fsrs.Hard
+	case "3", "good", "g", "":
+		return fsrs.Good
+	case "4", "easy", "e":
+		return fsrs.Easy
+	default:
+		return fsrs.Good
+	}
+}
+
+func promptRating(ui UI, num string) fsrs.Rating {
+	options := []string{
+		"1. Again - Forgot logic / needed solution (Review in ~1d)",
+		"2. Hard  - Solved with difficulty (Review in ~2d)",
+		"3. Good  - Solved smoothly (Review in ~4d)",
+		"4. Easy  - Trivial / Mastered (Review in ~7+d)",
+	}
+	choice := ui.PromptSelect(fmt.Sprintf("Rate your recall for #%s", num), options)
+	if strings.HasPrefix(choice, "1") {
+		return fsrs.Again
+	} else if strings.HasPrefix(choice, "2") {
+		return fsrs.Hard
+	} else if strings.HasPrefix(choice, "4") {
+		return fsrs.Easy
+	}
+	return fsrs.Good
 }
 
 func labelsFromEntries(entries []*tracker.ProgressEntry) []string {
@@ -162,13 +219,6 @@ func labelsFromEntries(entries []*tracker.ProgressEntry) []string {
 		labels[i] = fmt.Sprintf("%s. %s", e.Number, e.Title)
 	}
 	return labels
-}
-
-func showNextReview(ui UI, prog *tracker.Progress, num string) {
-	e := prog.Get(num)
-	if e != nil && e.NextReview != "" {
-		ui.WriteOutput(MsgInfo, "Next review for %s scheduled on %s.", num, e.NextReview)
-	}
 }
 
 func orDash(s string) string {

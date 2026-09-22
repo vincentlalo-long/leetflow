@@ -14,7 +14,7 @@ Solutions are stored as plain source files on disk, organized by data structure,
 
 - 🖥️ **Interactive Terminal UI**: Fast, keyboard-driven interface built with Bubble Tea.
 - 🧪 **Offline Local Testing**: Test solutions against example test cases without internet or cookies (supports C++, Python, Java, Go).
-- 🧠 **Spaced Repetition Review**: Smart review intervals (1, 3, 7, 15, 30, 60 days) to retain algorithmic patterns.
+- 🧠 **FSRS Spaced Repetition**: Modern DSR memory model (Free Spaced Repetition Scheduler) with 4 recall grades (`again`, `hard`, `good`, `easy`) and retrievability tracking.
 - 📂 **Structured Workspace**: Solutions auto-sorted into topic directories (`array/`, `tree/`, `dp/`, `graph/`).
 - 🔄 **Git Integration**: Auto-commit progress and push to your solutions repository with `leet sync`.
 - 🌐 **LeetCode Integration**: Fetch daily challenges, submit solutions, and track submission metrics directly from terminal.
@@ -66,8 +66,10 @@ leet test 1 --local
 # 5. Submit directly to LeetCode (requires session cookie)
 leet submit 1
 
-# 6. Check your spaced repetition review queue
+# 6. Review due problems with FSRS spaced repetition
 leet review
+# or rate recall directly:
+leet review 1 --grade easy
 
 # 7. Commit & push solutions to your git repository
 leet sync

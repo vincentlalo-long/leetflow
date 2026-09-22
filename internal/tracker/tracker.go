@@ -2,12 +2,15 @@ package tracker
 
 import (
 	"encoding/json"
+	"math"
 	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strconv"
 	"time"
+
+	fsrs "github.com/open-spaced-repetition/go-fsrs"
 )
 
 // ProgressEntry tracks the solving status and review state of one problem.
@@ -30,6 +33,16 @@ type ProgressEntry struct {
 	ReviewCount   int      `json:"review_count"`
 	LastReviewed  string   `json:"last_reviewed,omitempty"`
 	NextReview    string   `json:"next_review,omitempty"`
+
+	// FSRS fields
+	Stability      float64 `json:"stability,omitempty"`
+	DifficultyFSRS float64 `json:"fsrs_difficulty,omitempty"`
+	ElapsedDays    uint64  `json:"elapsed_days,omitempty"`
+	ScheduledDays  uint64  `json:"scheduled_days,omitempty"`
+	Reps           uint64  `json:"reps,omitempty"`
+	Lapses         uint64  `json:"lapses,omitempty"`
+	State          int8    `json:"state,omitempty"`
+	LastRating     string  `json:"last_rating,omitempty"`
 }
 
 // Progress is the on-disk state, stored in <base_dir>/.leet/progress.json.
@@ -157,26 +170,124 @@ func (p *Progress) SetStatus(number, title, difficulty string, tags []string, so
 	}
 }
 
-// MarkReviewed advances the spaced-repetition review schedule.
-func (p *Progress) MarkReviewed(number string) bool {
+// ToCard converts ProgressEntry into an fsrs.Card for scheduling.
+func (e *ProgressEntry) ToCard() fsrs.Card {
+	c := fsrs.NewCard()
+	if e.Stability > 0 {
+		c.Stability = e.Stability
+		c.Difficulty = e.DifficultyFSRS
+		c.ElapsedDays = e.ElapsedDays
+		c.ScheduledDays = e.ScheduledDays
+		c.Reps = e.Reps
+		c.Lapses = e.Lapses
+		c.State = fsrs.State(e.State)
+		if e.NextReview != "" {
+			if t, err := time.Parse("2006-01-02", e.NextReview); err == nil {
+				c.Due = t
+			}
+		}
+		if e.LastReviewed != "" {
+			if t, err := time.Parse("2006-01-02", e.LastReviewed); err == nil {
+				c.LastReview = t
+			}
+		}
+	}
+	return c
+}
+
+// ApplyCard updates ProgressEntry with the updated fsrs.Card state.
+func (e *ProgressEntry) ApplyCard(c fsrs.Card) {
+	e.Stability = c.Stability
+	e.DifficultyFSRS = c.Difficulty
+	e.ElapsedDays = c.ElapsedDays
+	e.ScheduledDays = c.ScheduledDays
+	e.Reps = c.Reps
+	e.Lapses = c.Lapses
+	e.State = int8(c.State)
+	e.NextReview = c.Due.Format("2006-01-02")
+	e.LastReviewed = c.LastReview.Format("2006-01-02")
+}
+
+// Retrievability calculates the estimated retention rate (0.0 to 1.0) on a given date.
+func (e *ProgressEntry) Retrievability(now time.Time) float64 {
+	if e.Stability <= 0 || e.LastReviewed == "" {
+		return 1.0
+	}
+	last, err := time.Parse("2006-01-02", e.LastReviewed)
+	if err != nil {
+		return 1.0
+	}
+	elapsedDays := now.Sub(last).Hours() / 24.0
+	if elapsedDays <= 0 {
+		return 1.0
+	}
+	decay := -0.5
+	factor := math.Pow(0.9, 1.0/decay) - 1.0
+	r := math.Pow(1.0+factor*elapsedDays/e.Stability, decay)
+	if r < 0.0 {
+		return 0.0
+	}
+	if r > 1.0 {
+		return 1.0
+	}
+	return r
+}
+
+// MarkReviewedFSRS advances the review schedule using the FSRS algorithm.
+// Returns the updated entry, the number of days until the next review, and success boolean.
+func (p *Progress) MarkReviewedFSRS(number string, rating fsrs.Rating) (*ProgressEntry, int, bool) {
 	e := p.Problems[number]
 	if e == nil {
-		return false
+		return nil, 0, false
 	}
-	e.ReviewCount++
+
 	now := time.Now()
-	e.LastReviewed = now.Format("2006-01-02")
-	// intervals: 1, 3, 7, 15, 30, 60 days
-	intervals := []int{1, 3, 7, 15, 30, 60}
-	idx := e.ReviewCount - 1
-	if idx < 0 {
-		idx = 0
+	e.ReviewCount++
+	card := e.ToCard()
+	param := fsrs.DefaultParam()
+	schedules := param.Repeat(card, now)
+
+	info, ok := schedules[rating]
+	if !ok {
+		info = schedules[fsrs.Good]
 	}
-	if idx >= len(intervals) {
-		idx = len(intervals) - 1
+
+	nextCard := info.Card
+	var daysUntilReview int
+
+	switch nextCard.State {
+	case fsrs.Learning, fsrs.Relearning:
+		switch rating {
+		case fsrs.Again:
+			daysUntilReview = 1
+		case fsrs.Hard:
+			daysUntilReview = 2
+		case fsrs.Good:
+			daysUntilReview = 4
+		case fsrs.Easy:
+			daysUntilReview = 7
+		default:
+			daysUntilReview = 3
+		}
+		nextCard.ScheduledDays = uint64(daysUntilReview)
+		nextCard.Due = now.AddDate(0, 0, daysUntilReview)
+	default: // fsrs.Review
+		daysUntilReview = int(nextCard.ScheduledDays)
+		if daysUntilReview < 1 {
+			daysUntilReview = 1
+		}
+		nextCard.Due = now.AddDate(0, 0, daysUntilReview)
 	}
-	e.NextReview = now.AddDate(0, 0, intervals[idx]).Format("2006-01-02")
-	return true
+
+	e.ApplyCard(nextCard)
+	e.LastRating = rating.String()
+	return e, daysUntilReview, true
+}
+
+// MarkReviewed advances the spaced-repetition review schedule with Good rating default.
+func (p *Progress) MarkReviewed(number string) bool {
+	_, _, ok := p.MarkReviewedFSRS(number, fsrs.Good)
+	return ok
 }
 
 func compareProblemNumbers(a, b string) bool {

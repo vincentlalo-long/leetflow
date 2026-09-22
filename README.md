@@ -133,6 +133,15 @@ go test -race ./...
 
 ---
 
+## 🙏 Acknowledgements & Credits
+
+- **[FSRS Algorithm](https://github.com/open-spaced-repetition/fsrs4anki)**: Spaced repetition scheduling is powered by the Free Spaced Repetition Scheduler algorithm by Jarrett Ye and the Open Spaced Repetition team, implemented via [`open-spaced-repetition/go-fsrs`](https://github.com/open-spaced-repetition/go-fsrs).
+- **[Charm](https://charm.sh/)**: Terminal UI components built with [Bubble Tea](https://github.com/charmbracelet/bubbletea) and [Lip Gloss](https://github.com/charmbracelet/lipgloss).
+- **[LeetCode](https://leetcode.com/)**: Problem descriptions, testing APIs, and judging platform.
+
+---
+
 ## 📄 License
 
 [MIT License](LICENSE) © 2026 vincentlalo-long
+

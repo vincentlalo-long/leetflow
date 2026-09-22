@@ -170,6 +170,10 @@ func (p *Progress) SetStatus(number, title, difficulty string, tags []string, so
 	}
 }
 
+// Spaced-repetition scheduling is powered by the Free Spaced Repetition Scheduler (FSRS)
+// algorithm (https://github.com/open-spaced-repetition/fsrs4anki) via the
+// go-fsrs library (https://github.com/open-spaced-repetition/go-fsrs).
+
 // ToCard converts ProgressEntry into an fsrs.Card for scheduling.
 func (e *ProgressEntry) ToCard() fsrs.Card {
 	c := fsrs.NewCard()

@@ -14,11 +14,17 @@ build:
 	$(GO) build -ldflags="-s -w" -o $(BINARY_NAME) .
 	@echo "✔ Binary built: ./$(BINARY_NAME)"
 
-## install: Build and install leet into GOPATH/bin
+LOCAL_BIN := $(HOME)/.local/bin
+
+## install: Build and install leet into GOPATH/bin and ~/.local/bin
 install:
 	@echo "==> Installing $(BINARY_NAME) to $(GOPATH_BIN)..."
 	@mkdir -p $(GOPATH_BIN)
 	$(GO) build -ldflags="-s -w" -o $(GOPATH_BIN)/$(BINARY_NAME) .
+	@if [ -d "$(LOCAL_BIN)" ]; then \
+		cp -f $(GOPATH_BIN)/$(BINARY_NAME) $(LOCAL_BIN)/$(BINARY_NAME); \
+		echo "✔ Installed to $(LOCAL_BIN)/$(BINARY_NAME)"; \
+	fi
 	@echo "✔ Installed to $(GOPATH_BIN)/$(BINARY_NAME)"
 	@echo "Run 'leet --version' or 'leet init' to get started!"
 

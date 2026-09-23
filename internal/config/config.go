@@ -43,8 +43,11 @@ func Load(path string) (*Config, error) {
 		dir = filepath.Dir(path)
 	} else {
 		for _, p := range []string{
+			"config.local.json",
 			"config.json",
+			filepath.Join("..", "config.local.json"),
 			filepath.Join("..", "config.json"),
+			filepath.Join("..", "..", "config.local.json"),
 			filepath.Join("..", "..", "config.json"),
 		} {
 			if _, err := os.Stat(p); err == nil {
@@ -54,8 +57,11 @@ func Load(path string) (*Config, error) {
 		}
 		if dir == "" {
 			if uDir, err := os.UserConfigDir(); err == nil {
+				candidateLocal := filepath.Join(uDir, "leet", "config.local.json")
 				candidate := filepath.Join(uDir, "leet", "config.json")
-				if _, err := os.Stat(candidate); err == nil {
+				if _, err := os.Stat(candidateLocal); err == nil {
+					dir = filepath.Dir(candidateLocal)
+				} else if _, err := os.Stat(candidate); err == nil {
 					dir = filepath.Dir(candidate)
 				}
 			}
@@ -86,7 +92,11 @@ func Load(path string) (*Config, error) {
 		if dir != "" {
 			cfg.path = localPath
 		} else {
-			cfg.path = "config.json"
+			if uDir, err := os.UserConfigDir(); err == nil {
+				cfg.path = filepath.Join(uDir, "leet", localConfigName)
+			} else {
+				cfg.path = localConfigName
+			}
 		}
 	}
 	cfg.path, _ = filepath.Abs(cfg.path)
@@ -185,15 +195,22 @@ func DetectBaseDir(configPath string) string {
 		}
 	}
 	dir := filepath.Dir(start)
+	home, _ := os.UserHomeDir()
 	for {
 		if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
+			if home != "" && filepath.Clean(dir) == filepath.Clean(home) {
+				break
+			}
 			return dir
 		}
 		parent := filepath.Dir(dir)
-		if parent == dir {
+		if parent == dir || (home != "" && filepath.Clean(dir) == filepath.Clean(home)) {
 			break
 		}
 		dir = parent
+	}
+	if home != "" {
+		return filepath.Join(home, "leetcode")
 	}
 	return filepath.Dir(start)
 }

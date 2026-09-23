@@ -141,6 +141,14 @@ func DoctorCommand(args []string, cfg *config.Config, ui UI) error {
 
 // scanWorkspace walks the workspace and reports structural issues.
 func scanWorkspace(baseDir string, ds map[string]string, exts []string, ui UI) int {
+	home, _ := os.UserHomeDir()
+	if home != "" && filepath.Clean(baseDir) == filepath.Clean(home) {
+		ui.WriteOutput(MsgError, "base_dir is set to your entire HOME directory (%s)!", baseDir)
+		ui.WriteOutput(MsgInfo, "Scanning was blocked to prevent traversing your entire personal filesystem.")
+		ui.WriteOutput(MsgInfo, "Please change base_dir to a dedicated folder like '~/leetcode' via 'leet config'.")
+		return 1
+	}
+
 	var orphanFiles []string
 	var missingReadme []string
 	var badNames []string
@@ -157,8 +165,24 @@ func scanWorkspace(baseDir string, ds map[string]string, exts []string, ui UI) i
 			return nil
 		}
 		if info.IsDir() {
-			if path != baseDir && template.IsIgnoredDir(info.Name()) {
-				return filepath.SkipDir
+			if path != baseDir {
+				// Skip any hidden directory (.git, .cache, .local, etc.)
+				if strings.HasPrefix(info.Name(), ".") || template.IsIgnoredDir(info.Name()) {
+					return filepath.SkipDir
+				}
+				rel, _ := filepath.Rel(baseDir, path)
+				parts := strings.Split(filepath.ToSlash(rel), "/")
+				// Only scan into configured category folders or "uncategorized"
+				if len(parts) == 1 {
+					top := strings.ToLower(parts[0])
+					if !dsFolders[top] && top != "uncategorized" {
+						return filepath.SkipDir
+					}
+				}
+				// Don't recurse deeper than category / problem-folder
+				if len(parts) > 2 {
+					return filepath.SkipDir
+				}
 			}
 			return nil
 		}

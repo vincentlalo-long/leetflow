@@ -79,7 +79,7 @@ func wantsHelp(args []string) bool {
 
 func isMetaCommand(cmd string) bool {
 	switch cmd {
-	case "init", "setup", "help", "man", "--help", "-h", "version", "--version", "-v", "completion":
+	case "init", "setup", "help", "man", "--help", "-h", "version", "--version", "-v", "completion", "doctor":
 		return true
 	}
 	return false

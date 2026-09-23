@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 
@@ -31,8 +32,11 @@ func InitCommand(args []string, cfg *config.Config, ui UI) error {
 			defaultBaseDir = "C:\\leetcode"
 		}
 	}
-	if cfg.BaseDir != "" {
-		defaultBaseDir = cfg.BaseDir
+	if cfg.BaseDir != "" && cfg.BaseDir != "." {
+		home, _ := os.UserHomeDir()
+		if home == "" || filepath.Clean(config.ExpandHome(cfg.BaseDir)) != filepath.Clean(home) {
+			defaultBaseDir = cfg.BaseDir
+		}
 	}
 
 	baseDir := flags["dir"]

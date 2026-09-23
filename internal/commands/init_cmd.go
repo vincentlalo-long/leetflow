@@ -34,7 +34,7 @@ func InitCommand(args []string, cfg *config.Config, ui UI) error {
 	}
 	if cfg.BaseDir != "" && cfg.BaseDir != "." {
 		home, _ := os.UserHomeDir()
-		if home == "" || filepath.Clean(config.ExpandHome(cfg.BaseDir)) != filepath.Clean(home) {
+		if home == "" || !strings.EqualFold(filepath.Clean(config.ExpandHome(cfg.BaseDir)), filepath.Clean(home)) {
 			defaultBaseDir = cfg.BaseDir
 		}
 	}

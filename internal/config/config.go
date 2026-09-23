@@ -158,9 +158,9 @@ func applyOverlay(cfg *Config, overlay map[string]interface{}) {
 	}
 }
 
-// ExpandHome replaces leading ~/ with the user's home directory path.
+// ExpandHome replaces leading ~/ or ~\ with the user's home directory path.
 func ExpandHome(path string) string {
-	if strings.HasPrefix(path, "~/") || path == "~" {
+	if strings.HasPrefix(path, "~/") || strings.HasPrefix(path, "~\\") || path == "~" {
 		home, err := os.UserHomeDir()
 		if err == nil {
 			if path == "~" {
@@ -198,13 +198,13 @@ func DetectBaseDir(configPath string) string {
 	home, _ := os.UserHomeDir()
 	for {
 		if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
-			if home != "" && filepath.Clean(dir) == filepath.Clean(home) {
+			if home != "" && strings.EqualFold(filepath.Clean(dir), filepath.Clean(home)) {
 				break
 			}
 			return dir
 		}
 		parent := filepath.Dir(dir)
-		if parent == dir || (home != "" && filepath.Clean(dir) == filepath.Clean(home)) {
+		if parent == dir || (home != "" && strings.EqualFold(filepath.Clean(dir), filepath.Clean(home))) {
 			break
 		}
 		dir = parent

@@ -140,3 +140,28 @@ func TestResolveBaseDir(t *testing.T) {
 		t.Errorf("ResolveBaseDir() = %q, want %q (repo root with .git)", cfg.BaseDir, tmpDir)
 	}
 }
+
+func TestExpandHome(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		t.Skip("skipping TestExpandHome: user home dir unavailable")
+	}
+
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"~", home},
+		{"~/leetcode", filepath.Join(home, "leetcode")},
+		{"~\\leetcode", filepath.Join(home, "leetcode")},
+		{"/var/log", "/var/log"},
+	}
+
+	for _, tc := range tests {
+		got := ExpandHome(tc.input)
+		if got != tc.expected {
+			t.Errorf("ExpandHome(%q) = %q, want %q", tc.input, got, tc.expected)
+		}
+	}
+}
+

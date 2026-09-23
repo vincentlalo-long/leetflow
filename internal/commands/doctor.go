@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 
 	"leetcli/internal/config"
@@ -141,11 +142,19 @@ func DoctorCommand(args []string, cfg *config.Config, ui UI) error {
 
 // scanWorkspace walks the workspace and reports structural issues.
 func scanWorkspace(baseDir string, ds map[string]string, exts []string, ui UI) int {
+	clean := filepath.Clean(baseDir)
 	home, _ := os.UserHomeDir()
-	if home != "" && filepath.Clean(baseDir) == filepath.Clean(home) {
-		ui.WriteOutput(MsgError, "base_dir is set to your entire HOME directory (%s)!", baseDir)
-		ui.WriteOutput(MsgInfo, "Scanning was blocked to prevent traversing your entire personal filesystem.")
-		ui.WriteOutput(MsgInfo, "Please change base_dir to a dedicated folder like '~/leetcode' via 'leet config'.")
+	isHome := home != "" && strings.EqualFold(clean, filepath.Clean(home))
+	vol := filepath.VolumeName(clean)
+	isDriveRoot := clean == "/" || clean == "\\" || clean == vol || clean == vol+"\\" || clean == vol+"/"
+	if isHome || isDriveRoot {
+		ui.WriteOutput(MsgError, "base_dir is set to an unsafe root directory (%s)!", baseDir)
+		ui.WriteOutput(MsgInfo, "Scanning was blocked to prevent traversing your entire filesystem.")
+		if runtime.GOOS == "windows" {
+			ui.WriteOutput(MsgInfo, "Please change base_dir to a dedicated folder like 'D:\\leetcode' or 'C:\\leetcode' via 'leet config'.")
+		} else {
+			ui.WriteOutput(MsgInfo, "Please change base_dir to a dedicated folder like '~/leetcode' via 'leet config'.")
+		}
 		return 1
 	}
 

@@ -238,7 +238,66 @@ func Slugify(text string) string {
 	return strings.Trim(slug, "-")
 }
 
+type graphQLSearchResp struct {
+	Data struct {
+		ProblemsetQuestionList struct {
+			Total     int `json:"total"`
+			Questions []struct {
+				QuestionFrontendID string `json:"questionFrontendId"`
+				Title              string `json:"title"`
+				TitleSlug          string `json:"titleSlug"`
+				Difficulty         string `json:"difficulty"`
+			} `json:"questions"`
+		} `json:"problemsetQuestionList"`
+	} `json:"data"`
+}
+
+func getProblemByIDGraphQL(frontendID string) (*ProblemInfo, error) {
+	cleanID := strings.TrimLeft(frontendID, "0")
+	if cleanID == "" {
+		cleanID = "0"
+	}
+	query := `query problemsetQuestionList($filters: QuestionListFilterInput) {
+		problemsetQuestionList: questionList(categorySlug: "", limit: 25, skip: 0, filters: $filters) {
+			total: totalNum
+			questions: data {
+				questionFrontendId
+				title
+				titleSlug
+				difficulty
+			}
+		}
+	}`
+	payload := map[string]interface{}{
+		"query": query,
+		"variables": map[string]interface{}{
+			"filters": map[string]string{
+				"searchKeywords": cleanID,
+			},
+		},
+	}
+	var resp graphQLSearchResp
+	if err := doPost(graphqlURL, payload, &resp); err != nil {
+		return nil, err
+	}
+	for _, q := range resp.Data.ProblemsetQuestionList.Questions {
+		if strings.TrimLeft(q.QuestionFrontendID, "0") == cleanID {
+			return &ProblemInfo{
+				Title: q.Title,
+				Slug:  q.TitleSlug,
+			}, nil
+		}
+	}
+	return nil, fmt.Errorf("problem %s not found in GraphQL search", frontendID)
+}
+
 func GetProblemByID(frontendID string) (*ProblemInfo, error) {
+	// 1. Try fast, targeted GraphQL search first (lightweight, ~500 bytes vs ~4MB)
+	if info, err := getProblemByIDGraphQL(frontendID); err == nil && info != nil {
+		return info, nil
+	}
+
+	// 2. Fall back to problemsURL if GraphQL fails or problem isn't returned in keyword search
 	var resp allProblemsResp
 	if err := doGet(problemsURL, &resp); err != nil {
 		return nil, err

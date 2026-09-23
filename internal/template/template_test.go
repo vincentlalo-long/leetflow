@@ -3,6 +3,7 @@ package template
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -102,6 +103,22 @@ Only one valid answer exists.
 Follow-up: Can you come up with an algorithm that is less than O(n^2) time complexity?`
 	if got != want {
 		t.Errorf("FormatDescriptionMarkdown() = %q\nwant %q", got, want)
+	}
+}
+
+func TestFormatDescriptionMarkdownWithImages(t *testing.T) {
+	html := `<p>Given the <code>root</code> of a binary tree, invert the tree, and return <em>its root</em>.</p>
+<p><img alt="Invert Tree Example" src="https://assets.leetcode.com/uploads/2021/03/14/invert1-tree.jpg" style="width: 500px;" /></p>
+<p><strong>Example 1:</strong></p>
+<pre><strong>Input:</strong> root = [4,2,7,1,3,6,9] <strong>Output:</strong> [4,7,2,9,6,3,1]</pre>`
+
+	got := FormatDescriptionMarkdown(html)
+	if !strings.Contains(got, "![Invert Tree Example](https://assets.leetcode.com/uploads/2021/03/14/invert1-tree.jpg)") {
+		t.Errorf("FormatDescriptionMarkdown() missing image markdown, got: %s", got)
+	}
+	urls := ExtractImageURLs(got)
+	if len(urls) != 1 || urls[0] != "https://assets.leetcode.com/uploads/2021/03/14/invert1-tree.jpg" {
+		t.Errorf("ExtractImageURLs() = %v, want 1 url", urls)
 	}
 }
 

@@ -134,11 +134,14 @@ func openWorkspaceLayout(cfg *config.Config, targetFile, targetDir, readmePath s
 			mode = "tmux"
 		} else if isHyprland || isSwayOrI3 {
 			mode = "wm"
-		} else if _, err := exec.LookPath("tmux"); err == nil {
-			mode = "tmux"
 		} else {
-			mode = "wm"
+			// Editor-native split is preferred over spawning arbitrary floating windows
+			return true, openEditorWithReadme(editor, targetFile, readmePath, hasReadme, ui)
 		}
+	}
+
+	if mode == "split" {
+		return true, openEditorWithReadme(editor, targetFile, readmePath, hasReadme, ui)
 	}
 
 	switch mode {
@@ -251,6 +254,47 @@ func isTerminalEditor(editor string) bool {
 		return true
 	}
 	return false
+}
+
+func openEditorWithReadme(editor, targetFile, readmePath string, hasReadme bool, ui UI) error {
+	ui.WriteOutput(MsgInfo, "Opening with %s (split layout)...", editor)
+	base := strings.ToLower(filepath.Base(editor))
+
+	var args []string
+	if hasReadme {
+		switch base {
+		case "nvim", "vim", "vi":
+			// Open vertical split: code on left, README on right
+			args = []string{"-O", targetFile, readmePath}
+		case "code", "codium", "cursor":
+			args = []string{targetFile, readmePath}
+		default:
+			args = []string{targetFile, readmePath}
+		}
+	} else {
+		args = []string{targetFile}
+	}
+
+	cmd := exec.Command(editor, args...)
+	if isTerminalEditor(editor) {
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Run(); err != nil {
+			ui.WriteOutput(MsgError, "Failed to run editor '%s': %v", editor, err)
+			return fmt.Errorf("editor failed: %w", err)
+		}
+		ui.WriteOutput(MsgSuccess, "Editor closed.")
+		return nil
+	}
+
+	if err := cmd.Start(); err != nil {
+		ui.WriteOutput(MsgError, "Failed to open editor '%s': %v", editor, err)
+		ui.WriteOutput(MsgInfo, "You can manually open: %s", targetFile)
+		return fmt.Errorf("failed to open editor '%s': %w", editor, err)
+	}
+	ui.WriteOutput(MsgSuccess, "Problem opened in editor!")
+	return nil
 }
 
 func openStandardEditor(editor, targetFile string, ui UI) error {

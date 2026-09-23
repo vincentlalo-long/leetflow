@@ -107,9 +107,16 @@ var CommandDocs = map[string]CommandDoc{
 	"open": {
 		Name:        "open",
 		Summary:     "Open problem file in code editor",
-		Usage:       "open [problem_number]",
-		Description: "Opens the local problem solution file and README in your configured code editor (VS Code, Vim, etc.).",
-		Examples:    []string{"open 1"},
+		Usage:       "open [problem_number] [--mode auto|split|tmux|wm|simple]",
+		Description: "Opens the local problem solution and README in your configured editor (VS Code, Neovim, etc.). Supports split panes (code + README) and Tmux/tiling WM layouts.",
+		Examples:    []string{"open 1", "open 1 --mode split", "open 1 --simple"},
+	},
+	"view": {
+		Name:        "view",
+		Summary:     "Display problem description with styled markdown & diagrams",
+		Usage:       "view [problem_number] [--raw] [--no-pager]",
+		Description: "Renders the problem description directly in your terminal using Glamour, with syntax highlighting, borders, and image support (including Kitty graphics protocol).",
+		Examples:    []string{"view 1", "view 15", "view 1 --raw"},
 	},
 	"run": {
 		Name:        "run",
@@ -243,7 +250,7 @@ var CommandDocs = map[string]CommandDoc{
 var CommandOrder = []string{
 	"init", "add", "add-sol", "list", "search", "manage-structures",
 	"stats", "theme", "daily", "random", "hint", "similar",
-	"open", "web", "run", "test", "submit", "verify", "timer", "note", "review",
+	"view", "open", "web", "run", "test", "submit", "verify", "timer", "note", "review",
 	"sync", "clean", "readme", "doctor", "profile", "contest", "config",
 	"completion", "clear", "exit",
 }

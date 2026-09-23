@@ -88,7 +88,8 @@ leet sync
 | `leet random` | Pick a random problem (filter by difficulty/tag) |
 | `leet list` | List all local problems with solving status |
 | `leet search <query>` | Search local problems by name or number |
-| `leet open <num>` | Open problem in your editor |
+| `leet view <num>` | Render problem description with styled markdown & diagrams |
+| `leet open <num>` | Open problem in your editor (split layout) |
 | `leet run <num>` | Compile & run local solution |
 | `leet test <num> --local` | Run offline local test harness |
 | `leet test <num>` | Run remote test on LeetCode API |

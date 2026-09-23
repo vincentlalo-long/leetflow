@@ -87,12 +87,14 @@ func pythonParams(s string) []Param {
 		if eq := strings.Index(tok, "="); eq >= 0 {
 			tok = tok[:eq]
 		}
+		pType := ""
 		if idx := strings.Index(tok, ":"); idx >= 0 {
+			pType = strings.TrimSpace(tok[idx+1:])
 			tok = tok[:idx]
 		}
 		tok = strings.TrimSpace(strings.TrimLeft(tok, "*"))
 		if tok != "" {
-			params = append(params, Param{Name: tok})
+			params = append(params, Param{Name: tok, Type: pType})
 		}
 	}
 	return params
@@ -557,8 +559,87 @@ func BuildLocalHarness(langKey, solutionCode string, sig MethodSig, cases []Test
 }
 
 func buildPythonHarness(code string, sig MethodSig) (string, bool) {
+	hasListNode := strings.Contains(code, "ListNode")
+	hasTreeNode := strings.Contains(code, "TreeNode")
+
 	sb := &strings.Builder{}
-	sb.WriteString("import json\nimport sys\n\n")
+	sb.WriteString("import json\nimport sys\nfrom typing import *\n\n")
+
+	if hasListNode && !strings.Contains(code, "class ListNode") {
+		sb.WriteString(`class ListNode:
+    def __init__(self, val=0, next=None):
+        self.val = val
+        self.next = next
+
+`)
+	}
+	if hasTreeNode && !strings.Contains(code, "class TreeNode") {
+		sb.WriteString(`class TreeNode:
+    def __init__(self, val=0, left=None, right=None):
+        self.val = val
+        self.left = left
+        self.right = right
+
+`)
+	}
+
+	if hasListNode {
+		sb.WriteString(`def _mk_py_list(vals):
+    if not isinstance(vals, list): return vals
+    dummy = ListNode(0)
+    cur = dummy
+    for v in vals:
+        cur.next = ListNode(v)
+        cur = cur.next
+    return dummy.next
+
+def _ser_py_list(node):
+    res = []
+    while node:
+        res.append(node.val)
+        node = node.next
+    return res
+
+`)
+	}
+
+	if hasTreeNode {
+		sb.WriteString(`def _mk_py_tree(vals):
+    if not isinstance(vals, list) or not vals: return None
+    root = TreeNode(vals[0])
+    q = [root]
+    i = 1
+    while q and i < len(vals):
+        node = q.pop(0)
+        if i < len(vals) and vals[i] is not None:
+            node.left = TreeNode(vals[i])
+            q.append(node.left)
+        i += 1
+        if i < len(vals) and vals[i] is not None:
+            node.right = TreeNode(vals[i])
+            q.append(node.right)
+        i += 1
+    return root
+
+def _ser_py_tree(root):
+    if not root: return []
+    res = []
+    q = [root]
+    while q:
+        node = q.pop(0)
+        if node:
+            res.append(node.val)
+            q.append(node.left)
+            q.append(node.right)
+        else:
+            res.append(None)
+    while res and res[-1] is None:
+        res.pop()
+    return res
+
+`)
+	}
+
 	sb.WriteString(strings.TrimSpace(code))
 	sb.WriteString("\n\n_sol = Solution()\n")
 	sb.WriteString("def _main():\n")
@@ -567,7 +648,24 @@ func buildPythonHarness(code string, sig MethodSig) (string, bool) {
 	sb.WriteString("    for _t in _tests:\n")
 	sb.WriteString("        try:\n")
 	sb.WriteString("            _args = [json.loads(_a) for _a in _t['args']]\n")
+
+	for i, p := range sig.Params {
+		lowerType := strings.ToLower(p.Type)
+		lowerName := strings.ToLower(p.Name)
+		if strings.Contains(lowerType, "listnode") || strings.HasPrefix(lowerName, "l1") || strings.HasPrefix(lowerName, "l2") || lowerName == "head" {
+			fmt.Fprintf(sb, "            if len(_args) > %d: _args[%d] = _mk_py_list(_args[%d])\n", i, i, i)
+		} else if strings.Contains(lowerType, "treenode") || lowerName == "root" || lowerName == "tree" {
+			fmt.Fprintf(sb, "            if len(_args) > %d: _args[%d] = _mk_py_tree(_args[%d])\n", i, i, i)
+		}
+	}
+
 	fmt.Fprintf(sb, "            _res = _sol.%s(*_args)\n", sig.Name)
+	if hasListNode {
+		sb.WriteString("            if isinstance(_res, ListNode): _res = _ser_py_list(_res)\n")
+	}
+	if hasTreeNode {
+		sb.WriteString("            if isinstance(_res, TreeNode): _res = _ser_py_tree(_res)\n")
+	}
 	sb.WriteString("            print('RESULT\\t' + json.dumps(_res, default=str))\n")
 	sb.WriteString("        except Exception as _e:\n")
 	sb.WriteString("            print('ERROR\\t' + repr(_e))\n")
@@ -809,6 +907,14 @@ func buildCppHarness(code string, sig MethodSig, cases []TestCase) (string, bool
 
 	sb := &strings.Builder{}
 	sb.WriteString("#include <bits/stdc++.h>\nusing namespace std;\n\n")
+
+	if hasListNode && !strings.Contains(code, "struct ListNode {") && !strings.Contains(code, "class ListNode {") {
+		sb.WriteString(cppListNodeDef)
+	}
+	if hasTreeNode && !strings.Contains(code, "struct TreeNode {") && !strings.Contains(code, "class TreeNode {") {
+		sb.WriteString(cppTreeNodeDef)
+	}
+
 	sb.WriteString(cppPrinterSrc)
 	if hasListNode {
 		sb.WriteString(cppListNodePrinter)
@@ -823,15 +929,26 @@ func buildCppHarness(code string, sig MethodSig, cases []TestCase) (string, bool
 		sb.WriteString("    {\n")
 		varNames := make([]string, 0, len(tc.Args))
 		for i, arg := range tc.Args {
+			name := fmt.Sprintf("__a%d", i)
+			typ := cppTypeName(sig.Params[i].Type, "")
+			if strings.Contains(typ, "ListNode") {
+				fmt.Fprintf(sb, "        ListNode* %s = __mk_cpp_list(%s);\n", name, strconv.Quote(arg))
+				varNames = append(varNames, name)
+				continue
+			}
+			if strings.Contains(typ, "TreeNode") {
+				fmt.Fprintf(sb, "        TreeNode* %s = __mk_cpp_tree(%s);\n", name, strconv.Quote(arg))
+				varNames = append(varNames, name)
+				continue
+			}
 			lit, ok := cppElement(arg)
 			if !ok {
 				return "", false
 			}
-			typ := cppTypeName(sig.Params[i].Type, lit)
+			typ = cppTypeName(sig.Params[i].Type, lit)
 			if typ == "" {
 				return "", false
 			}
-			name := fmt.Sprintf("__a%d", i)
 			fmt.Fprintf(sb, "        %s %s = %s;\n", typ, name, lit)
 			varNames = append(varNames, name)
 		}
@@ -867,6 +984,27 @@ func cppTypeName(declType, literal string) string {
 	return t
 }
 
+const cppListNodeDef = `
+struct ListNode {
+    int val;
+    ListNode *next;
+    ListNode() : val(0), next(nullptr) {}
+    ListNode(int x) : val(x), next(nullptr) {}
+    ListNode(int x, ListNode *next) : val(x), next(next) {}
+};
+`
+
+const cppTreeNodeDef = `
+struct TreeNode {
+    int val;
+    TreeNode *left;
+    TreeNode *right;
+    TreeNode() : val(0), left(nullptr), right(nullptr) {}
+    TreeNode(int x) : val(x), left(nullptr), right(nullptr) {}
+    TreeNode(int x, TreeNode *left, TreeNode *right) : val(x), left(left), right(right) {}
+};
+`
+
 const cppPrinterSrc = `
 string __j(const string& s) {
     string o = "\"";
@@ -899,6 +1037,31 @@ template<class T> string __j(const vector<T>& v) {
 `
 
 const cppListNodePrinter = `
+ListNode* __mk_cpp_list(const string& s) {
+    ListNode* head = nullptr;
+    ListNode* cur = nullptr;
+    long long val = 0;
+    bool inNum = false, neg = false;
+    for (char c : s) {
+        if (c == '-') { neg = true; inNum = true; val = 0; }
+        else if (c >= '0' && c <= '9') { inNum = true; val = val * 10 + (c - '0'); }
+        else if (inNum) {
+            if (neg) val = -val;
+            ListNode* n = new ListNode((int)val);
+            if (!head) head = n;
+            else cur->next = n;
+            cur = n;
+            inNum = false; neg = false; val = 0;
+        }
+    }
+    if (inNum) {
+        if (neg) val = -val;
+        ListNode* n = new ListNode((int)val);
+        if (!head) head = n;
+        else cur->next = n;
+    }
+    return head;
+}
 string __j(const ListNode* head) {
     string o = "[";
     const ListNode* p = head;
@@ -913,6 +1076,47 @@ string __j(const ListNode* head) {
 `
 
 const cppTreeNodePrinter = `
+TreeNode* __mk_cpp_tree(const string& s) {
+    vector<pair<bool, int>> vals;
+    string tok = "";
+    for (char c : s) {
+        if (c == '[' || c == ']' || c == ' ' || c == '\n' || c == '\r') continue;
+        if (c == ',') {
+            if (tok == "null" || tok == "NULL") vals.push_back({false, 0});
+            else if (!tok.empty()) vals.push_back({true, stoi(tok)});
+            tok = "";
+        } else {
+            tok += c;
+        }
+    }
+    if (tok == "null" || tok == "NULL") vals.push_back({false, 0});
+    else if (!tok.empty()) vals.push_back({true, stoi(tok)});
+
+    if (vals.empty() || !vals[0].first) return nullptr;
+    TreeNode* root = new TreeNode(vals[0].second);
+    queue<TreeNode*> q;
+    q.push(root);
+    size_t idx = 1;
+    while (!q.empty() && idx < vals.size()) {
+        TreeNode* curr = q.front();
+        q.pop();
+        if (idx < vals.size()) {
+            if (vals[idx].first) {
+                curr->left = new TreeNode(vals[idx].second);
+                q.push(curr->left);
+            }
+            idx++;
+        }
+        if (idx < vals.size()) {
+            if (vals[idx].first) {
+                curr->right = new TreeNode(vals[idx].second);
+                q.push(curr->right);
+            }
+            idx++;
+        }
+    }
+    return root;
+}
 string __j(const TreeNode* root) {
     string o = "[";
     bool first = true;

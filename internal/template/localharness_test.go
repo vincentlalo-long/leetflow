@@ -284,3 +284,51 @@ func twoSum(nums []int, target int) []int {
 		t.Fatalf("harness missing main functions:\n%s", h)
 	}
 }
+
+func TestBuildCppHarnessListNode(t *testing.T) {
+	code := `class Solution {
+public:
+    ListNode* deleteDuplicates(ListNode* head) {
+        return head;
+    }
+};`
+	sig := MethodSig{
+		Name:       "deleteDuplicates",
+		Params:     []Param{{Name: "head", Type: "ListNode*"}},
+		ReturnType: "ListNode*",
+	}
+	cases := []TestCase{
+		{Args: []string{"[1,1,2]"}, Expected: "[1,2]"},
+	}
+	h, ok := BuildLocalHarness("cpp", code, sig, cases)
+	if !ok {
+		t.Fatal("cpp harness build failed")
+	}
+	if !strings.Contains(h, "__mk_cpp_list") {
+		t.Fatalf("missing __mk_cpp_list in C++ harness:\n%s", h)
+	}
+	if !strings.Contains(h, "struct ListNode {") {
+		t.Fatalf("missing struct ListNode definition in C++ harness:\n%s", h)
+	}
+}
+
+func TestBuildPythonHarnessListNode(t *testing.T) {
+	code := `class Solution:
+    def deleteDuplicates(self, head: Optional[ListNode]) -> Optional[ListNode]:
+        return head`
+	sig := MethodSig{
+		Name:       "deleteDuplicates",
+		Params:     []Param{{Name: "head", Type: "Optional[ListNode]"}},
+		ReturnType: "Optional[ListNode]",
+	}
+	h, ok := BuildLocalHarness("python", code, sig, nil)
+	if !ok {
+		t.Fatal("python harness build failed")
+	}
+	if !strings.Contains(h, "class ListNode:") {
+		t.Fatalf("missing class ListNode in Python harness:\n%s", h)
+	}
+	if !strings.Contains(h, "_mk_py_list") {
+		t.Fatalf("missing _mk_py_list in Python harness:\n%s", h)
+	}
+}

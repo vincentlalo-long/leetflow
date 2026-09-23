@@ -91,6 +91,15 @@ func RunProblem(args []string, cfg *config.Config, ui UI) error {
 		return fmt.Errorf("unsupported file extension")
 	}
 
+	hasMain := strings.Contains(content, "main(") || strings.Contains(content, "main ") || strings.Contains(content, "public static void main")
+	if !hasMain && (langKey == "cpp" || langKey == "c" || langKey == "go" || langKey == "java") {
+		ui.WriteOutput(MsgInfo, "No main() entry point detected. Running local test harness...")
+		if runLocalHarness(cfg, ui, targetFile, content, "") {
+			return nil
+		}
+		return fmt.Errorf("local harness execution failed")
+	}
+
 	switch langKey {
 	case "cpp", "c":
 		if !strings.Contains(content, "main(") {

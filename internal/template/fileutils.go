@@ -165,7 +165,46 @@ var (
 	// sectionStartRe breaks lines before known section markers when they appear
 	// mid-line, so fetched descriptions render as clean, line-separated markdown.
 	sectionStartRe = regexp.MustCompile(`(?i)([^\n])((?:Example\s+\d+|Input|Output|Explanation|Constraints|Follow-up|Follow up)\s*:)`)
+	imgTagRe       = regexp.MustCompile(`(?i)<img\b[^>]*>`)
+	srcAttrRe      = regexp.MustCompile(`(?i)src=["']([^"']+)["']`)
+	altAttrRe      = regexp.MustCompile(`(?i)alt=["']([^"']*)["']`)
+	mdImageRe      = regexp.MustCompile(`!\[([^\]]*)\]\((https?://[^)]+)\)`)
 )
+
+func replaceImgTags(html string) string {
+	return imgTagRe.ReplaceAllStringFunc(html, func(m string) string {
+		srcMatch := srcAttrRe.FindStringSubmatch(m)
+		if len(srcMatch) < 2 || srcMatch[1] == "" {
+			return ""
+		}
+		src := srcMatch[1]
+		if strings.HasPrefix(src, "//") {
+			src = "https:" + src
+		} else if strings.HasPrefix(src, "/") {
+			src = "https://leetcode.com" + src
+		}
+		alt := "image"
+		altMatch := altAttrRe.FindStringSubmatch(m)
+		if len(altMatch) >= 2 && strings.TrimSpace(altMatch[1]) != "" {
+			alt = strings.TrimSpace(altMatch[1])
+		}
+		return fmt.Sprintf("\n\n![%s](%s)\n\n", alt, src)
+	})
+}
+
+// ExtractImageURLs extracts all HTTP(S) image URLs from a markdown text.
+func ExtractImageURLs(md string) []string {
+	matches := mdImageRe.FindAllStringSubmatch(md, -1)
+	var urls []string
+	seen := make(map[string]bool)
+	for _, m := range matches {
+		if len(m) >= 3 && !seen[m[2]] {
+			urls = append(urls, m[2])
+			seen[m[2]] = true
+		}
+	}
+	return urls
+}
 
 // breakSectionLines inserts a newline before known section markers (Input:,
 // Output:, Explanation:, ...) when they appear mid-line.
@@ -188,9 +227,11 @@ func blockTagToNewline(m string) string {
 // entities are decoded, superscripts stay readable (10^4), and
 // Input/Output/Explanation/Constraints each land on their own line.
 func FormatDescriptionMarkdown(html string) string {
+	// Preserve <img> tags as markdown before other tags are stripped.
+	s := replaceImgTags(html)
 	// Block-level tags -> newlines, so <li>/<p>/<pre> items are not glued
 	// together on one line.
-	s := blockTagRe.ReplaceAllStringFunc(html, blockTagToNewline)
+	s = blockTagRe.ReplaceAllStringFunc(s, blockTagToNewline)
 	// Superscript / subscript -> ^N / _N before tags are stripped.
 	s = supRe.ReplaceAllString(s, "^$1")
 	s = subRe.ReplaceAllString(s, "_$1")

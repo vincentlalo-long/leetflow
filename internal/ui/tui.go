@@ -537,16 +537,15 @@ func (m Model) View() string {
 	var buf strings.Builder
 
 	if m.showBanner {
-		buf.WriteString(RenderBanner())
+		buf.WriteString(RenderBanner(m.termWidth, m.cfg))
+		buf.WriteString(SeparatorStyle.Render(strings.Repeat("─", m.termWidth)))
+		buf.WriteString("\n")
 	}
 
-	buf.WriteString(SeparatorStyle.Render(strings.Repeat("─", m.termWidth)))
-	buf.WriteString("\n")
-
 	lines := strings.Split(outputStr, "\n")
-	availableHeight := m.termHeight - 10
+	availableHeight := m.termHeight - 5
 	if m.showBanner {
-		availableHeight -= 8
+		availableHeight -= 4
 	}
 	if availableHeight < 3 {
 		availableHeight = 3
@@ -584,9 +583,9 @@ func (m Model) View() string {
 		buf.WriteString("\n")
 	}
 
+	buf.WriteString(SeparatorStyle.Render(strings.Repeat("─", m.termWidth)))
 	buf.WriteString("\n")
-	buf.WriteString(RenderStatusBar(m.termWidth))
-	buf.WriteString(DimmedStyle.Render(strings.Repeat("─", m.termWidth)))
+	buf.WriteString(RenderStatusBar(m.termWidth, m.cfg))
 	buf.WriteString("\n")
 
 	switch pk {

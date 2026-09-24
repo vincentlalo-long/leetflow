@@ -1,18 +1,27 @@
 package ui
 
-import "fmt"
+import (
+	"fmt"
 
-const banner = `
-  ██╗  ██████╗ ███████╗ █████╗ ██╗
-  ██║  ██╔══██╗██╔════╝██╔══██╗██║
-  ██║  ██║  ██║█████╗  ███████║██║
-  ██║  ██║  ██║██╔══╝  ██╔══██║██║
-  ██║  ██████╔╝███████╗██║  ██║███████╗
-  ╚═╝  ╚═════╝ ╚══════╝╚═╝  ╚═╝╚══════╝
-`
+	"github.com/charmbracelet/lipgloss"
+	"leetcli/internal/commands"
+	"leetcli/internal/config"
+)
 
-func RenderBanner() string {
-	return BannerStyle.Render(banner) + "\n"
+func RenderBanner(width int, cfg *config.Config) string {
+	badge := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("#1a1a2e")).
+		Background(Cyan).
+		Padding(0, 1).
+		Render("LEETFLOW")
+
+	ver := DimmedStyle.Render("v" + commands.Version)
+	title := BannerStyle.Render("LeetCode Workspace")
+	hints := DimmedStyle.Render("Type 'help' for commands • 'exit' to quit • Tab to complete")
+
+	header := fmt.Sprintf(" %s %s  %s", badge, ver, title)
+	return fmt.Sprintf("\n%s\n %s\n", header, hints)
 }
 
 const helpText = `Available commands:

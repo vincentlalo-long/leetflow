@@ -1,12 +1,22 @@
 package commands
 
 import (
+	"bufio"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
+
+	"golang.org/x/term"
 
 	"leetcli/internal/template"
 )
+
+// isTerminalStdin checks if standard input is attached to an interactive terminal.
+func isTerminalStdin() bool {
+	return term.IsTerminal(int(os.Stdin.Fd()))
+}
+
 
 // resolveLangFlag maps a --lang value (key, label, or extension) to a language key.
 func resolveLangFlag(languages map[string]template.LanguageInfo, value string) string {
@@ -67,18 +77,51 @@ func (h HeadlessUI) IsHeadless() bool {
 }
 
 func (h HeadlessUI) PromptText(label string) string {
-	fmt.Fprintf(os.Stderr, "✘ Cannot prompt in non-interactive mode: %s\n", label)
-	return ""
+	if !isTerminalStdin() {
+		return ""
+	}
+	fmt.Printf("%s: ", label)
+	reader := bufio.NewReader(os.Stdin)
+	text, _ := reader.ReadString('\n')
+	return strings.TrimSpace(text)
 }
 
 func (h HeadlessUI) PromptSelect(label string, choices []string) string {
-	fmt.Fprintf(os.Stderr, "✘ Cannot prompt in non-interactive mode: %s\n", label)
-	return ""
+	if !isTerminalStdin() {
+		return ""
+	}
+	if len(choices) == 0 {
+		return ""
+	}
+	fmt.Printf("%s:\n", label)
+	for i, choice := range choices {
+		fmt.Printf("  [%d] %s\n", i+1, choice)
+	}
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		fmt.Printf("Select option [1-%d] (Enter for 1): ", len(choices))
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+		if input == "" {
+			return choices[0]
+		}
+		idx, err := strconv.Atoi(input)
+		if err == nil && idx >= 1 && idx <= len(choices) {
+			return choices[idx-1]
+		}
+		fmt.Println("Invalid selection, please try again.")
+	}
 }
 
 func (h HeadlessUI) PromptConfirm(label string) bool {
-	fmt.Fprintf(os.Stderr, "✘ Cannot prompt in non-interactive mode: %s\n", label)
-	return false
+	if !isTerminalStdin() {
+		return false
+	}
+	fmt.Printf("%s [y/N]: ", label)
+	reader := bufio.NewReader(os.Stdin)
+	input, _ := reader.ReadString('\n')
+	input = strings.TrimSpace(strings.ToLower(input))
+	return input == "y" || input == "yes"
 }
 
 func (h HeadlessUI) WriteOutput(kind MsgKind, format string, args ...interface{}) {

@@ -31,11 +31,33 @@ func AddProblem(args []string, cfg *config.Config, ui UI) error {
 	}
 
 	suggestedName := ""
+	slug := ""
+	var details *api.ProblemDetail
+
 	ui.WriteOutput(MsgInfo, "Looking up problem details...")
 	problemData, err := api.GetProblemByID(problemNum)
 	if err == nil && problemData != nil {
 		suggestedName = problemData.Title
-		ui.WriteOutput(MsgSuccess, "Found: %s", suggestedName)
+		slug = problemData.Slug
+	}
+
+	if slug == "" && suggestedName != "" {
+		slug = api.Slugify(suggestedName)
+	}
+
+	if slug != "" {
+		details, _ = api.GetProblemDetails(slug)
+		if details != nil && details.Title != "" {
+			suggestedName = details.Title
+		}
+	}
+
+	if suggestedName != "" {
+		diffStr := ""
+		if details != nil && details.Difficulty != "" {
+			diffStr = fmt.Sprintf(" (%s)", details.Difficulty)
+		}
+		ui.WriteOutput(MsgSuccess, "Found: %s%s", suggestedName, diffStr)
 	} else {
 		ui.WriteOutput(MsgError, "Could not find problem with ID %s", problemNum)
 	}
@@ -44,11 +66,11 @@ func AddProblem(args []string, cfg *config.Config, ui UI) error {
 	if hasFlag(flags, "name") {
 		problemName = flags["name"]
 	}
-	if problemName == "" {
-		problemName = ui.PromptText(fmt.Sprintf("Problem name (suggested: %s)", suggestedName))
-	}
 	if problemName == "" && suggestedName != "" {
 		problemName = suggestedName
+	}
+	if problemName == "" {
+		problemName = ui.PromptText("Problem name")
 	}
 	if problemName == "" {
 		ui.WriteOutput(MsgError, "Problem name cannot be empty")
@@ -66,11 +88,19 @@ func AddProblem(args []string, cfg *config.Config, ui UI) error {
 	if hasFlag(flags, "ds") {
 		selected = flags["ds"]
 	}
-	if selected == "" {
-		selected = ui.PromptSelect("Select data structure", dsChoices)
+	if selected == "" && details != nil && len(details.TopicTags) > 0 {
+		selected = autoDetectCategory(details.TopicTags, dataStructures)
+		if selected != "" {
+			ui.WriteOutput(MsgInfo, "Category: %s (auto-detected from tags)", selected)
+		}
 	}
 	if selected == "" {
-		return nil
+		if !isHeadlessUI(ui) || isTerminalStdin() {
+			selected = ui.PromptSelect("Select data structure", dsChoices)
+		}
+	}
+	if selected == "" {
+		selected = "[Uncategorized]"
 	}
 
 	if selected == "Add new data structure" {
@@ -97,7 +127,7 @@ func AddProblem(args []string, cfg *config.Config, ui UI) error {
 		}
 		selected = ui.PromptSelect("Select data structure", dsChoices)
 		if selected == "" {
-			return nil
+			selected = "[Uncategorized]"
 		}
 	}
 
@@ -117,19 +147,20 @@ func AddProblem(args []string, cfg *config.Config, ui UI) error {
 		langKey = resolveLangFlag(languages, flags["lang"])
 	}
 	if langKey == "" {
-		langChoices, langMapping := template.GetLanguageChoices(languages, cfg.DefaultLanguage)
-		langChoice := ui.PromptSelect("Select language", langChoices)
-		langKey = langMapping[langChoice]
+		langKey = cfg.DefaultLanguage
 	}
 	if langKey == "" {
-		langKey = cfg.DefaultLanguage
+		if !isHeadlessUI(ui) || isTerminalStdin() {
+			langChoices, langMapping := template.GetLanguageChoices(languages, cfg.DefaultLanguage)
+			langChoice := ui.PromptSelect("Select language", langChoices)
+			langKey = langMapping[langChoice]
+		}
+	}
+	if langKey == "" {
+		langKey = "cpp"
 	}
 	langExt := languages[langKey].Ext
 
-	slug := ""
-	if problemData != nil && problemData.Slug != "" {
-		slug = problemData.Slug
-	}
 	if slug == "" {
 		slug = api.Slugify(problemName)
 	}
@@ -151,11 +182,9 @@ func AddProblem(args []string, cfg *config.Config, ui UI) error {
 		return fmt.Errorf("problem file already exists")
 	}
 
-	ui.WriteOutput(MsgInfo, "Fetching problem details from LeetCode...")
-	details, err := api.GetProblemDetails(slug)
-	if err != nil {
-		ui.WriteOutput(MsgError, "Could not fetch problem details: %v", err)
-		details = nil
+	if details == nil && slug != "" {
+		ui.WriteOutput(MsgInfo, "Fetching problem details from LeetCode...")
+		details, _ = api.GetProblemDetails(slug)
 	}
 
 	content := ""
@@ -172,7 +201,6 @@ func AddProblem(args []string, cfg *config.Config, ui UI) error {
 		snippet := details.GetCodeSnippet(langKey)
 		content = template.BuildProblemTemplateWithSnippet(langKey, problemNum, details.Title, link,
 			details.Difficulty, tagsStr, selected, snippet)
-		ui.WriteOutput(MsgSuccess, "Found: %s (%s)", details.Title, details.Difficulty)
 	} else {
 		content = template.BuildProblemTemplate(langKey, problemNum, problemName, "",
 			"Unknown", "None", selected)
@@ -212,3 +240,49 @@ func AddProblem(args []string, cfg *config.Config, ui UI) error {
 	ui.WriteOutput(MsgInfo, "Path: %s", problemFile)
 	return nil
 }
+
+// autoDetectCategory matches problem topic tags against configured data structures.
+func autoDetectCategory(tags []api.TopicTag, ds map[string]string) string {
+	tagMap := map[string]string{
+		"array":              "array",
+		"hashtable":          "hash",
+		"linkedlist":         "linkedlist",
+		"string":             "string",
+		"tree":               "tree",
+		"binarytree":         "tree",
+		"binarysearchtree":   "tree",
+		"binarysearch":       "binary",
+		"dynamicprogramming": "dp",
+		"stack":              "stack",
+		"queue":              "queue",
+		"heap":               "heap",
+		"priorityqueue":      "heap",
+		"graph":              "graph",
+		"twopointers":        "two-pointer",
+		"slidingwindow":      "sliding",
+		"backtracking":       "backtracking",
+		"greedy":             "greedy",
+		"math":               "math",
+		"bitmanipulation":    "binary",
+		"recursion":          "backtracking",
+		"trie":               "trie",
+		"unionfind":          "graph",
+	}
+
+	for _, t := range tags {
+		norm := strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(t.Name, " ", ""), "-", ""))
+		if target, ok := tagMap[norm]; ok {
+			if _, exists := ds[target]; exists {
+				return target
+			}
+		}
+		for k := range ds {
+			kNorm := strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(k, " ", ""), "-", ""))
+			if kNorm == norm || strings.Contains(norm, kNorm) {
+				return k
+			}
+		}
+	}
+	return ""
+}
+

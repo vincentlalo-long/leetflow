@@ -43,12 +43,10 @@ var (
 			Foreground(DimColor)
 
 	StatusBarStyle = lipgloss.NewStyle().
-			Foreground(DimColor).
-			Background(lipgloss.Color("#1a1a2e"))
+			Foreground(DimColor)
 
 	StatusBarText = lipgloss.NewStyle().
-			Foreground(Gray).
-			Background(lipgloss.Color("#1a1a2e"))
+			Foreground(Gray)
 
 	SeparatorStyle = lipgloss.NewStyle().
 			Foreground(DimColor)

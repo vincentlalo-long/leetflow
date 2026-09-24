@@ -7,32 +7,52 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"leetcli/internal/config"
 )
 
-func RenderStatusBar(width int) string {
+func RenderStatusBar(width int, cfg *config.Config) string {
 	home, _ := os.UserHomeDir()
-	cwd, _ := os.Getwd()
+	baseDir := ""
+	lang := "cpp"
+	editor := "nvim"
 
-	wd := strings.Replace(cwd, home, "~", 1)
-	wd = filepath.Base(wd)
+	if cfg != nil {
+		baseDir = cfg.BaseDir
+		if home != "" && strings.HasPrefix(baseDir, home) {
+			baseDir = "~" + strings.TrimPrefix(baseDir, home)
+		}
+		if cfg.DefaultLanguage != "" {
+			lang = cfg.DefaultLanguage
+		}
+		if cfg.Editor != "" {
+			editor = cfg.Editor
+		}
+	}
+	if baseDir == "" {
+		if cwd, err := os.Getwd(); err == nil {
+			baseDir = filepath.Base(cwd)
+		}
+	}
 
-	mode := "no sandbox"
-	model := "IDEAL-core (100%)"
+	left := StatusBarText.Render(fmt.Sprintf(" 📁 %s", baseDir))
+	center := StatusBarText.Copy().Foreground(Cyan).Render(fmt.Sprintf("⚡ %s │ 📝 %s", lang, editor))
+	right := StatusBarText.Copy().Foreground(DimColor).Render("[PgUp/PgDn: scroll] ")
 
-	left := StatusBarText.Render(wd)
-	center := StatusBarText.Copy().Foreground(Red).Render(mode)
-	right := StatusBarText.Copy().Foreground(Magenta).Render(model)
-
-	sep := DimmedStyle.Render(strings.Repeat("─", width))
+	totalContent := lipgloss.Width(left) + lipgloss.Width(center) + lipgloss.Width(right)
+	space := width - totalContent
+	if space < 2 {
+		space = 2
+	}
+	gap := strings.Repeat(" ", space/2)
 
 	bar := lipgloss.JoinHorizontal(
 		lipgloss.Top,
 		left,
-		strings.Repeat(" ", max(0, width-lipgloss.Width(left)-lipgloss.Width(center)-lipgloss.Width(right)-4)),
+		gap,
 		center,
-		"  ",
+		gap,
 		right,
 	)
 
-	return fmt.Sprintf("%s\n%s\n", sep, bar)
+	return bar
 }

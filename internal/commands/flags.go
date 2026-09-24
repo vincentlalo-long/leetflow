@@ -51,7 +51,21 @@ func parseFlags(args []string) (positional []string, flags map[string]string) {
 				flags[key[:eq]] = key[eq+1:]
 				continue
 			}
-			if i+1 < len(args) && !strings.HasPrefix(args[i+1], "--") {
+			if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+				flags[key] = args[i+1]
+				i++
+			} else {
+				flags[key] = "true"
+			}
+			continue
+		}
+		if strings.HasPrefix(a, "-") && len(a) > 1 {
+			key := strings.TrimPrefix(a, "-")
+			if eq := strings.IndexByte(key, '='); eq >= 0 {
+				flags[key[:eq]] = key[eq+1:]
+				continue
+			}
+			if i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
 				flags[key] = args[i+1]
 				i++
 			} else {
@@ -93,9 +107,9 @@ func (h HeadlessUI) PromptSelect(label string, choices []string) string {
 	if len(choices) == 0 {
 		return ""
 	}
-	fmt.Printf("%s:\n", label)
+	fmt.Printf("\n%s:\n", label)
 	for i, choice := range choices {
-		fmt.Printf("  [%d] %s\n", i+1, choice)
+		fmt.Printf("  [%2d] %s\n", i+1, choice)
 	}
 	reader := bufio.NewReader(os.Stdin)
 	for {
@@ -108,6 +122,11 @@ func (h HeadlessUI) PromptSelect(label string, choices []string) string {
 		idx, err := strconv.Atoi(input)
 		if err == nil && idx >= 1 && idx <= len(choices) {
 			return choices[idx-1]
+		}
+		for _, choice := range choices {
+			if strings.EqualFold(choice, input) {
+				return choice
+			}
 		}
 		fmt.Println("Invalid selection, please try again.")
 	}

@@ -62,15 +62,24 @@ func AddProblem(args []string, cfg *config.Config, ui UI) error {
 		ui.WriteOutput(MsgError, "Could not find problem with ID %s", problemNum)
 	}
 
+	skipPrompt := hasFlag(flags, "yes") || hasFlag(flags, "y") || (!isTerminalStdin() && isHeadlessUI(ui))
+
 	problemName := ""
 	if hasFlag(flags, "name") {
 		problemName = flags["name"]
 	}
+	if problemName == "" && !skipPrompt {
+		promptLabel := "Problem name"
+		if suggestedName != "" {
+			promptLabel = fmt.Sprintf("Problem name (Enter for '%s')", suggestedName)
+		}
+		entered := ui.PromptText(promptLabel)
+		if entered != "" {
+			problemName = entered
+		}
+	}
 	if problemName == "" && suggestedName != "" {
 		problemName = suggestedName
-	}
-	if problemName == "" {
-		problemName = ui.PromptText("Problem name")
 	}
 	if problemName == "" {
 		ui.WriteOutput(MsgError, "Problem name cannot be empty")
@@ -78,26 +87,41 @@ func AddProblem(args []string, cfg *config.Config, ui UI) error {
 	}
 
 	dataStructures := cfg.GetDataStructures()
-	dsChoices := []string{"[Uncategorized]"}
-	for k := range dataStructures {
-		dsChoices = append(dsChoices, k)
+	detectedCategory := ""
+	if details != nil && len(details.TopicTags) > 0 {
+		detectedCategory = autoDetectCategory(details.TopicTags, dataStructures)
 	}
-	dsChoices = append(dsChoices, "Add new data structure")
 
 	selected := ""
 	if hasFlag(flags, "ds") {
 		selected = flags["ds"]
 	}
-	if selected == "" && details != nil && len(details.TopicTags) > 0 {
-		selected = autoDetectCategory(details.TopicTags, dataStructures)
-		if selected != "" {
-			ui.WriteOutput(MsgInfo, "Category: %s (auto-detected from tags)", selected)
+	if selected == "" && skipPrompt {
+		selected = detectedCategory
+		if selected == "" {
+			selected = "[Uncategorized]"
 		}
 	}
 	if selected == "" {
-		if !isHeadlessUI(ui) || isTerminalStdin() {
-			selected = ui.PromptSelect("Select data structure", dsChoices)
+		var dsChoices []string
+		if detectedCategory != "" {
+			dsChoices = append(dsChoices, detectedCategory)
 		}
+		for k := range dataStructures {
+			if k != detectedCategory {
+				dsChoices = append(dsChoices, k)
+			}
+		}
+		dsChoices = append(dsChoices, "[Uncategorized]", "Add new data structure")
+
+		promptLabel := "Select data structure"
+		if detectedCategory != "" {
+			promptLabel = fmt.Sprintf("Select data structure (suggested: %s)", detectedCategory)
+		}
+		selected = ui.PromptSelect(promptLabel, dsChoices)
+	}
+	if selected == "" {
+		selected = detectedCategory
 	}
 	if selected == "" {
 		selected = "[Uncategorized]"
@@ -121,10 +145,11 @@ func AddProblem(args []string, cfg *config.Config, ui UI) error {
 			ui.WriteOutput(MsgSuccess, "Added data structure: %s -> %s", name, folder)
 		}
 		dataStructures = cfg.GetDataStructures()
-		dsChoices = []string{"[Uncategorized]"}
+		var dsChoices []string
 		for k := range dataStructures {
 			dsChoices = append(dsChoices, k)
 		}
+		dsChoices = append(dsChoices, "[Uncategorized]")
 		selected = ui.PromptSelect("Select data structure", dsChoices)
 		if selected == "" {
 			selected = "[Uncategorized]"
@@ -146,15 +171,17 @@ func AddProblem(args []string, cfg *config.Config, ui UI) error {
 	if hasFlag(flags, "lang") {
 		langKey = resolveLangFlag(languages, flags["lang"])
 	}
-	if langKey == "" {
+	if langKey == "" && skipPrompt {
 		langKey = cfg.DefaultLanguage
 	}
 	if langKey == "" {
-		if !isHeadlessUI(ui) || isTerminalStdin() {
-			langChoices, langMapping := template.GetLanguageChoices(languages, cfg.DefaultLanguage)
-			langChoice := ui.PromptSelect("Select language", langChoices)
-			langKey = langMapping[langChoice]
-		}
+		langChoices, langMapping := template.GetLanguageChoices(languages, cfg.DefaultLanguage)
+		promptLabel := fmt.Sprintf("Select language (default: %s)", cfg.DefaultLanguage)
+		langChoice := ui.PromptSelect(promptLabel, langChoices)
+		langKey = langMapping[langChoice]
+	}
+	if langKey == "" {
+		langKey = cfg.DefaultLanguage
 	}
 	if langKey == "" {
 		langKey = "cpp"

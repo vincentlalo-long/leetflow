@@ -28,6 +28,19 @@ func TestParseFlagsEq(t *testing.T) {
 	}
 }
 
+func TestParseSingleHyphenFlags(t *testing.T) {
+	pos, flags := parseFlags([]string{"1", "-y", "-d", "array"})
+	if len(pos) != 1 || pos[0] != "1" {
+		t.Errorf("pos = %v, want [1]", pos)
+	}
+	if flags["y"] != "true" {
+		t.Errorf("flags[y] = %q, want true", flags["y"])
+	}
+	if flags["d"] != "array" {
+		t.Errorf("flags[d] = %q, want array", flags["d"])
+	}
+}
+
 func TestHasFlag(t *testing.T) {
 	if !hasFlag(map[string]string{"yes": "true"}, "yes") {
 		t.Errorf("hasFlag(true) should be true")

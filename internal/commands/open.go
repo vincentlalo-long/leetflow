@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"bufio"
 	"fmt"
 	"os"
 	"os/exec"
@@ -148,24 +149,33 @@ func openWorkspaceLayout(cfg *config.Config, targetFile, targetDir, readmePath s
 	case "wm":
 		ui.WriteOutput(MsgInfo, "Launching 3-window workspace layout (Tiling WM / %s)...", terminal)
 
-		// 1. Launch Editor
+		selfExe, err := os.Executable()
+		if err != nil {
+			selfExe = "leet"
+		}
+
+		// 1. Launch Editor Window (Screen 1)
 		targetBase := filepath.Base(targetFile)
 		if err := spawnTerminalWindow(terminal, targetDir, "LeetCode: "+targetBase, editor, targetBase); err != nil {
 			return false, fmt.Errorf("failed to spawn editor window: %w", err)
 		}
-		time.Sleep(120 * time.Millisecond)
+		time.Sleep(150 * time.Millisecond)
 
-		// 2. Launch Problem Description (README)
-		if hasReadme {
-			viewCmd := fmt.Sprintf("%s README.md; exec bash", readViewer)
-			_ = spawnTerminalWindow(terminal, targetDir, "LeetCode: Problem Description", "sh", "-c", viewCmd)
-			time.Sleep(120 * time.Millisecond)
+		// 2. Launch Problem Description Viewer (Screen 2)
+		// Run leet view <num> inside viewer wrapper so it stays open and doesn't fall into a blank bash terminal!
+		viewCmd := fmt.Sprintf("%q view %s; echo ''; echo '──────────────────────────────────────────'; echo 'Press [Enter] or [q] to close viewer...'; read -r _", selfExe, problemNum)
+		_ = spawnTerminalWindow(terminal, targetDir, fmt.Sprintf("LeetCode: #%s Description", problemNum), "sh", "-c", viewCmd)
+		time.Sleep(150 * time.Millisecond)
+
+		// 3. Screen 3: The Current Terminal BECOMES the Test Runner!
+		// No extra 4th window, no idle terminal left sitting around!
+		if isHeadlessUI(ui) && isTerminalStdin() {
+			return true, runInteractiveTester(cfg, problemNum, targetFile, targetDir, ui)
 		}
 
-		// 3. Launch Terminal Tester
-		testPrompt := fmt.Sprintf("echo '=== LeetCode Tester: #%s ==='; echo 'Commands:'; echo '  leet test %s --local'; echo '  leet run %s'; echo ''; exec bash", problemNum, problemNum, problemNum)
-		_ = spawnTerminalWindow(terminal, targetDir, "LeetCode: Terminal", "sh", "-c", testPrompt)
-
+		// If running from TUI or non-interactive launcher, spawn the 3rd window
+		testCmd := fmt.Sprintf("%q test %s --local; echo ''; echo '════════════════════════════════════════════════'; echo 'Interactive runner: type leet test %s or leet run %s'; echo ''; exec bash", selfExe, problemNum, problemNum, problemNum)
+		_ = spawnTerminalWindow(terminal, targetDir, "LeetCode: Test Runner", "sh", "-c", testCmd)
 		return true, nil
 
 	case "tmux":
@@ -321,3 +331,63 @@ func openStandardEditor(editor, targetFile string, ui UI) error {
 	ui.WriteOutput(MsgSuccess, "Problem opened in editor!")
 	return nil
 }
+
+// runInteractiveTester transforms the current terminal into a live testing dashboard.
+func runInteractiveTester(cfg *config.Config, problemNum, targetFile, targetDir string, ui UI) error {
+	fmt.Println()
+	fmt.Println("════════════════════════════════════════════════════════════════════")
+	fmt.Printf("  ⚡ LeetFlow Workspace Test Runner — Problem #%s\n", problemNum)
+	fmt.Println("════════════════════════════════════════════════════════════════════")
+	fmt.Printf("  • Code Editor:   Window 1 (%s)\n", filepath.Base(targetFile))
+	fmt.Printf("  • Problem View:  Window 2 (README.md)\n")
+	fmt.Printf("  • Test Runner:   Window 3 (This terminal)\n")
+	fmt.Println("────────────────────────────────────────────────────────────────────")
+	fmt.Println("  Shortcuts:")
+	fmt.Println("    [Enter / t]  Run local testcases (leet test --local)")
+	fmt.Println("    [r]          Compile & run locally (leet run)")
+	fmt.Println("    [s]          Submit to LeetCode (leet submit)")
+	fmt.Println("    [v]          View problem description in terminal")
+	fmt.Println("    [q]          Exit workspace runner")
+	fmt.Println("════════════════════════════════════════════════════════════════════")
+	fmt.Println()
+
+	// Initial test run
+	fmt.Println("▶ Running initial testcases...")
+	_ = TestProblem([]string{problemNum, "--local"}, cfg, ui)
+	fmt.Println()
+
+	reader := bufio.NewReader(os.Stdin)
+	for {
+		fmt.Print("runner [t: test | r: run | s: submit | q: quit] > ")
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			break
+		}
+		cmd := strings.TrimSpace(strings.ToLower(line))
+		switch cmd {
+		case "", "t", "test":
+			fmt.Println("\n--- Running Local Testcases ---")
+			_ = TestProblem([]string{problemNum, "--local"}, cfg, ui)
+			fmt.Println()
+		case "r", "run":
+			fmt.Println("\n--- Compiling & Running Solution ---")
+			_ = RunProblem([]string{problemNum}, cfg, ui)
+			fmt.Println()
+		case "s", "submit":
+			fmt.Println("\n--- Submitting Solution to LeetCode ---")
+			_ = SubmitProblem([]string{problemNum}, cfg, ui)
+			fmt.Println()
+		case "v", "view":
+			fmt.Println("\n--- Problem Description ---")
+			_ = ViewProblem([]string{problemNum, "--raw"}, cfg, ui)
+			fmt.Println()
+		case "q", "quit", "exit":
+			fmt.Println("Exiting workspace test runner. Happy coding!")
+			return nil
+		default:
+			fmt.Printf("Unknown command '%s'. Press Enter/t to test, r to run, s to submit, q to quit.\n", cmd)
+		}
+	}
+	return nil
+}
+

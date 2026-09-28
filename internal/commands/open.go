@@ -390,4 +390,3 @@ func runInteractiveTester(cfg *config.Config, problemNum, targetFile, targetDir 
 	}
 	return nil
 }
-

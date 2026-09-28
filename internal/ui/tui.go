@@ -104,6 +104,9 @@ func waitForRedraw(ch chan struct{}) tea.Cmd {
 type Model struct {
 	ready        bool
 	input        textinput.Model
+	commandMode  bool
+	navIndex     int
+	actionIndex  int
 	history      []string
 	historyPos   int
 	scrollOffset int // 0 = at bottom, >0 = scrolled up by N lines
@@ -135,6 +138,7 @@ func New(cfg *config.Config) Model {
 		history:      []string{},
 		cfg:          cfg,
 		showBanner:   true,
+		commandMode:  false,
 		scrollOffset: 0,
 		state:        state,
 	}
@@ -183,11 +187,63 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case PromptConfirm:
 			return m.updateConfirmPrompt(msg, pr)
 		default:
+			if !m.commandMode {
+				return m.updateDashboardInput(msg)
+			}
 			return m.updateCommandInput(msg)
 		}
 	}
 
 	return m, nil
+}
+
+func (m Model) updateDashboardInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "ctrl+c", "ctrl+d", "q":
+		return m, tea.Quit
+	case "/", ":":
+		m.commandMode = true
+		m.input.SetValue("")
+		m.input.Focus()
+		return m, nil
+	case "?":
+		m.commandMode = true
+		m.input.SetValue("help")
+		return m, m.dispatchCommand("help")
+	case "tab", "right", "l":
+		m.navIndex = (m.navIndex + 1) % len(navItems)
+	case "shift+tab", "left", "h":
+		m.navIndex--
+		if m.navIndex < 0 {
+			m.navIndex = len(navItems) - 1
+		}
+	case "down", "j":
+		m.actionIndex++
+		if m.actionIndex >= len(quickActions) {
+			m.actionIndex = 0
+		}
+	case "up", "k":
+		m.actionIndex--
+		if m.actionIndex < 0 {
+			m.actionIndex = len(quickActions) - 1
+		}
+	case "enter":
+		return m, m.runQuickAction()
+	}
+	return m, nil
+}
+
+func (m Model) runQuickAction() tea.Cmd {
+	if m.actionIndex >= len(quickActions) {
+		return nil
+	}
+	action := quickActions[m.actionIndex]
+	if action.command == "" {
+		return nil
+	}
+	m.commandMode = true
+	m.input.SetValue(action.command)
+	return m.dispatchCommand(action.command)
 }
 
 func (m Model) updateTextPrompt(msg tea.KeyMsg, resultCh chan string) (tea.Model, tea.Cmd) {
@@ -386,6 +442,7 @@ func (m Model) updateCommandInput(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "enter":
 		cmd := strings.TrimSpace(m.input.Value())
 		m.input.SetValue("")
+		m.commandMode = false
 		m.scrollOffset = 0
 		if cmd != "" {
 			m.history = append(m.history, cmd)
@@ -534,13 +591,11 @@ func (m Model) View() string {
 	filterQuery := m.state.filterQuery
 	m.state.mu.Unlock()
 
-	var buf strings.Builder
-
-	if m.showBanner {
-		buf.WriteString(RenderBanner(m.termWidth, m.cfg))
-		buf.WriteString(SeparatorStyle.Render(strings.Repeat("─", m.termWidth)))
-		buf.WriteString("\n")
+	if !m.commandMode && pk == PromptNone {
+		return m.renderDashboard()
 	}
+
+	var buf strings.Builder
 
 	lines := strings.Split(outputStr, "\n")
 	availableHeight := m.termHeight - 5
@@ -673,6 +728,114 @@ func (m Model) View() string {
 	}
 
 	return AppStyle.Render(buf.String())
+}
+
+type navItem struct {
+	label string
+	icon  string
+}
+
+type quickAction struct {
+	label   string
+	command string
+	hint    string
+}
+
+var navItems = []navItem{
+	{label: "Dashboard", icon: "◆"},
+	{label: "Problems", icon: "▣"},
+	{label: "Review queue", icon: "↻"},
+	{label: "Statistics", icon: "◈"},
+	{label: "Settings", icon: "⚙"},
+}
+
+var quickActions = []quickAction{
+	{label: "Add a problem", command: "add", hint: "Fetch a problem and create its workspace"},
+	{label: "Browse problems", command: "list", hint: "View and filter your local problem set"},
+	{label: "Review due problems", command: "review", hint: "Practice problems scheduled by FSRS"},
+	{label: "Run local tests", command: "test", hint: "Run an offline test harness"},
+	{label: "Open command palette", command: "", hint: "Press / to run any leet command"},
+}
+
+func (m Model) renderDashboard() string {
+	width := m.termWidth - 2
+	if width < 40 {
+		return AppStyle.Render("Terminal width is too small. Resize to at least 40 columns.")
+	}
+	height := m.termHeight - 5
+	if height < 10 {
+		height = 10
+	}
+
+	header := HeaderStyle.Render(" LEETFLOW ") + " " +
+		DimmedStyle.Render("LeetCode workspace") + "  " +
+		BadgeStyle.Render("v"+commands.Version)
+
+	sideWidth := 22
+	contentWidth := width - sideWidth - 3
+	side := m.renderSidebar(sideWidth, height)
+	content := m.renderDashboardContent(contentWidth, height)
+	body := lipgloss.JoinHorizontal(lipgloss.Top, side, "  ", content)
+
+	footer := FooterStyle.Width(width).Render(
+		"↑↓ select   Enter run   Tab navigate   / command palette   q quit",
+	)
+	return AppStyle.Render(header + "\n" + body + "\n" + footer)
+}
+
+func (m Model) renderSidebar(width, height int) string {
+	var b strings.Builder
+	b.WriteString(SectionTitleStyle.Render("WORKSPACE"))
+	b.WriteString("\n\n")
+	for i, item := range navItems {
+		style := SidebarItemStyle
+		prefix := "  "
+		if i == m.navIndex {
+			style = SidebarActiveStyle
+			prefix = "› "
+		}
+		b.WriteString(style.Width(width - 2).Render(prefix + item.icon + "  " + item.label))
+		b.WriteString("\n")
+	}
+	b.WriteString("\n")
+	b.WriteString(DimmedStyle.Render("SHORTCUTS"))
+	b.WriteString("\n")
+	b.WriteString(HelpStyle.Render("  /  commands\n  ?  help\n  q  quit"))
+	return PanelStyle.Width(width).Height(height).Render(b.String())
+}
+
+func (m Model) renderDashboardContent(width, height int) string {
+	var b strings.Builder
+	b.WriteString(SectionTitleStyle.Render("YOUR LEETCODE WORKSPACE"))
+	b.WriteString("\n")
+	b.WriteString(DimmedStyle.Render("Pick an action. You can always press / to use a command."))
+	b.WriteString("\n\n")
+
+	stats := lipgloss.JoinHorizontal(
+		lipgloss.Top,
+		StatCardStyle.Width((width-4)/3).Render("SOLVED\n"+StatValueStyle.Render("—")),
+		" ",
+		StatCardStyle.Width((width-4)/3).Render("DUE TODAY\n"+StatValueStyle.Render("—")),
+		" ",
+		StatCardStyle.Width((width-4)/3).Render("STREAK\n"+StatValueStyle.Render("—")),
+	)
+	b.WriteString(stats)
+	b.WriteString("\n\n")
+	b.WriteString(SectionTitleStyle.Render("QUICK ACTIONS"))
+	b.WriteString("\n")
+	for i, action := range quickActions {
+		style := ActionStyle
+		prefix := "  "
+		if i == m.actionIndex {
+			style = ActionActiveStyle
+			prefix = "› "
+		}
+		label := fmt.Sprintf("%s%-24s %s", prefix, action.label, DimmedStyle.Render(action.hint))
+		b.WriteString(style.Width(width).Render(label))
+		b.WriteString("\n")
+	}
+	content := PanelStyle.Width(width).Height(height).Render(b.String())
+	return content
 }
 
 // sharedState implements commands.UI interface.

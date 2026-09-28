@@ -17,7 +17,6 @@ func isTerminalStdin() bool {
 	return term.IsTerminal(int(os.Stdin.Fd()))
 }
 
-
 // resolveLangFlag maps a --lang value (key, label, or extension) to a language key.
 func resolveLangFlag(languages map[string]template.LanguageInfo, value string) string {
 	value = strings.TrimSpace(value)

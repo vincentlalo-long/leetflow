@@ -52,10 +52,9 @@ func TestTUIViewNoRedundantDividers(t *testing.T) {
 		t.Errorf("view should not contain legacy IDEAL banner: %s", view)
 	}
 
-	// Count number of horizontal divider lines (strings of ─)
-	dividerCount := strings.Count(view, strings.Repeat("─", 80))
-	// Exactly 2 dividers: 1 under banner, 1 above status bar
-	if dividerCount != 2 {
-		t.Errorf("expected exactly 2 dividers in TUI, found %d: %s", dividerCount, view)
+	for _, text := range []string{"WORKSPACE", "QUICK ACTIONS", "command palette"} {
+		if !strings.Contains(view, text) {
+			t.Errorf("expected dashboard text %q, got: %s", text, view)
+		}
 	}
 }

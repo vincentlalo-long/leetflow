@@ -57,4 +57,58 @@ var (
 	HelpStyle = lipgloss.NewStyle().
 			Foreground(Gray).
 			Italic(true)
+
+	HeaderStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("#101018")).
+			Background(Cyan).
+			Padding(0, 1)
+
+	BadgeStyle = lipgloss.NewStyle().
+			Foreground(Magenta).
+			Bold(true)
+
+	SectionTitleStyle = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(Cyan)
+
+	PanelStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(DimColor).
+			Padding(1, 1)
+
+	SidebarItemStyle = lipgloss.NewStyle().
+				Foreground(Gray).
+				Padding(0, 1)
+
+	SidebarActiveStyle = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(White).
+				Background(Highlight).
+				Padding(0, 1)
+
+	StatCardStyle = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(DimColor).
+			Foreground(Gray).
+			Padding(0, 1)
+
+	StatValueStyle = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(Special)
+
+	ActionStyle = lipgloss.NewStyle().
+			Foreground(White).
+			Padding(0, 1)
+
+	ActionActiveStyle = lipgloss.NewStyle().
+				Bold(true).
+				Foreground(White).
+				Background(lipgloss.Color("#30304d")).
+				Padding(0, 1)
+
+	FooterStyle = lipgloss.NewStyle().
+			Foreground(Gray).
+			Background(lipgloss.Color("#1d1d2a")).
+			Padding(0, 1)
 )

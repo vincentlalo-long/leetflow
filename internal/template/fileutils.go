@@ -159,7 +159,7 @@ func DecodeHTMLEntities(s string) string {
 var (
 	// blockTagRe matches block-level tags that should start a new line.
 	blockTagRe = regexp.MustCompile(`(?i)</?(?:li|p|pre|ul|ol|div|h[1-6]|br)\s*/?>`)
-	// supRe / subRe keep superscript/subscript readable, e.g. 10<sup>4</sup> -> 10^4.
+	// supRe / subRe preserve superscript/subscript in GitHub-compatible HTML.
 	supRe = regexp.MustCompile(`(?i)<sup>(.*?)</sup>`)
 	subRe = regexp.MustCompile(`(?i)<sub>(.*?)</sub>`)
 	// sectionStartRe breaks lines before known section markers when they appear
@@ -224,7 +224,7 @@ func blockTagToNewline(m string) string {
 
 // FormatDescriptionMarkdown converts a raw LeetCode description (HTML) into
 // clean markdown for a problem README: block tags become new lines, HTML
-// entities are decoded, superscripts stay readable (10^4), and
+// entities are decoded, superscripts render correctly on GitHub, and
 // Input/Output/Explanation/Constraints each land on their own line.
 func FormatDescriptionMarkdown(html string) string {
 	// Preserve <img> tags as markdown before other tags are stripped.
@@ -232,13 +232,17 @@ func FormatDescriptionMarkdown(html string) string {
 	// Block-level tags -> newlines, so <li>/<p>/<pre> items are not glued
 	// together on one line.
 	s = blockTagRe.ReplaceAllStringFunc(s, blockTagToNewline)
-	// Superscript / subscript -> ^N / _N before tags are stripped.
-	s = supRe.ReplaceAllString(s, "^$1")
-	s = subRe.ReplaceAllString(s, "_$1")
+	// Protect superscript/subscript markers while stripping other HTML tags.
+	s = supRe.ReplaceAllString(s, "LEET_SUP_START${1}LEET_SUP_END")
+	s = subRe.ReplaceAllString(s, "LEET_SUB_START${1}LEET_SUB_END")
 	// Strip the remaining inline tags.
 	s = stripTagsRe.ReplaceAllString(s, "")
 	s = DecodeHTMLEntities(s)
 	s = breakSectionLines(s)
+	s = strings.ReplaceAll(s, "LEET_SUP_START", "<sup>")
+	s = strings.ReplaceAll(s, "LEET_SUP_END", "</sup>")
+	s = strings.ReplaceAll(s, "LEET_SUB_START", "<sub>")
+	s = strings.ReplaceAll(s, "LEET_SUB_END", "</sub>")
 	// Drop standalone &nbsp; spacer lines (now blank after decoding) and
 	// collapse runs of blank lines so paragraphs stay readable.
 	lines := strings.Split(s, "\n")
@@ -253,10 +257,29 @@ func FormatDescriptionMarkdown(html string) string {
 			out = append(out, "")
 			continue
 		}
+		line := strings.TrimSpace(l)
+		if len(out) > 0 && isDescriptionBreak(line) && out[len(out)-1] != "" {
+			out = append(out, "")
+		}
 		blank = 0
-		out = append(out, strings.TrimSpace(l))
+		out = append(out, line)
 	}
 	return strings.TrimSpace(strings.Join(out, "\n"))
+}
+
+func isDescriptionBreak(line string) bool {
+	lower := strings.ToLower(strings.TrimSpace(line))
+	if strings.HasPrefix(lower, "example ") && strings.HasSuffix(lower, ":") {
+		return true
+	}
+	switch lower {
+	case "constraints:", "follow-up:", "follow up:":
+		return true
+	default:
+		return strings.HasPrefix(lower, "input:") ||
+			strings.HasPrefix(lower, "output:") ||
+			strings.HasPrefix(lower, "explanation:")
+	}
 }
 
 func GetSolvedMap(baseDir string, extensions []string) map[string]bool {

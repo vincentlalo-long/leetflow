@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go)](https://go.dev/)
 
-**A terminal LeetCode companion: solve locally, test offline, and actually remember solutions with spaced repetition.**
+**A LeetCode companion with a lightweight CLI and a keyboard-driven terminal UI: solve locally, test offline, and actually remember solutions with spaced repetition.**
 
 Solutions are stored as plain source files on disk, organized by data structure, and version-controlled with Git.
 
@@ -12,7 +12,7 @@ Solutions are stored as plain source files on disk, organized by data structure,
 
 ## ⚡ Features
 
-- 🖥️ **Interactive Terminal UI**: Fast, keyboard-driven interface built with Bubble Tea.
+- 🖥️ **Separate interfaces**: `leet` is a lightweight command-line binary; `leet-tui` is the full interactive terminal UI built with Bubble Tea.
 - 🧪 **Offline Local Testing**: Test solutions against example test cases without internet or cookies (supports C++, Python, Java, Go).
 - 🧠 **FSRS Spaced Repetition**: Modern DSR memory model (Free Spaced Repetition Scheduler) with 4 recall grades (`again`, `hard`, `good`, `easy`) and retrievability tracking.
 - 📂 **Structured Workspace**: Solutions auto-sorted into topic directories (`array/`, `tree/`, `dp/`, `graph/`).
@@ -26,7 +26,7 @@ Solutions are stored as plain source files on disk, organized by data structure,
 Requires [Go 1.25+](https://go.dev/dl/).
 
 ### Pre-built Binaries (GitHub Releases)
-Download the latest pre-built binary for Linux, macOS, or Windows from the [Releases](https://github.com/vincentlalo-long/leetflow/releases) page.
+Download the latest CLI and TUI binaries for Linux, macOS, or Windows from the [Releases](https://github.com/vincentlalo-long/leetflow/releases) page.
 
 ### Build from Source
 
@@ -35,6 +35,7 @@ Download the latest pre-built binary for Linux, macOS, or Windows from the [Rele
 git clone https://github.com/vincentlalo-long/leetflow.git
 cd leetflow
 make install
+# Optional: build the terminal UI with `make build-tui`
 # or: ./build.sh
 ```
 
@@ -51,7 +52,8 @@ powershell -ExecutionPolicy Bypass -File build.ps1
 ## 🚀 Quick Start
 
 ```bash
-# 1. Interactive setup wizard
+# CLI: explicit commands, suitable for scripts and CI
+# 1. Setup wizard
 leet init
 
 # 2. Add problem #1 (Two Sum) with template & README
@@ -73,6 +75,9 @@ leet review 1 --grade easy
 
 # 7. Commit & push solutions to your git repository
 leet sync
+
+# Interactive terminal UI
+leet-tui
 ```
 
 ---
@@ -81,7 +86,8 @@ leet sync
 
 | Command | Description |
 |---------|-------------|
-| `leet` | Launch interactive Terminal UI (TUI) |
+| `leet` | Lightweight CLI for explicit commands, scripts, and CI |
+| `leet-tui` | Launch the interactive Terminal UI |
 | `leet init` | First-run interactive setup wizard |
 | `leet add <num>` | Fetch & scaffold problem from LeetCode |
 | `leet daily` | Fetch today's Daily Challenge |
@@ -145,4 +151,3 @@ go test -race ./...
 ## 📄 License
 
 [MIT License](LICENSE) © 2026 vincentlalo-long
-

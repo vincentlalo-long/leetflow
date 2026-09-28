@@ -252,11 +252,9 @@ func BuildSolutionBlock(languageKey string, solNum int, method, time, space, cod
 		return fmt.Sprintf(`
 
 # ================== Solution %d ==================
-"""
-Method: %s
-Time Complexity: %s
-Space Complexity: %s
-"""
+# Method: %s
+# Time Complexity: %s
+# Space Complexity: %s
 
 %s
 `, solNum, method, time, space, code)

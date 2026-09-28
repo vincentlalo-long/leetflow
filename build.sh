@@ -9,8 +9,8 @@ mkdir -p "$GOPATH_BIN"
 
 DEST="$GOPATH_BIN/leet"
 
-echo "Building leet for Linux..."
-go build -ldflags="-s -w" -o "$DEST" .
+echo "Building leet CLI for Linux..."
+go build -ldflags="-s -w" -o "$DEST" ./cmd/leet
 
 echo "✔ Successfully installed to: $DEST"
 
@@ -25,3 +25,4 @@ if [[ ":$PATH:" != *":$GOPATH_BIN:"* ]]; then
 fi
 
 echo "Run 'leet --version' or 'leet init' to get started!"
+echo "Build the terminal UI separately with: go build -o leet-tui ./cmd/leet-tui"

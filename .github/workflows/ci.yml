@@ -42,3 +42,8 @@ jobs:
 
       - name: Build Binary
         run: go build -ldflags="-s -w" -o leet${{ matrix.os == 'windows-latest' && '.exe' || '' }} .
+
+      - name: Build CLI and TUI binaries
+        run: |
+          go build -ldflags="-s -w" -o leet-cli${{ matrix.os == 'windows-latest' && '.exe' || '' }} ./cmd/leet
+          go build -ldflags="-s -w" -o leet-tui${{ matrix.os == 'windows-latest' && '.exe' || '' }} ./cmd/leet-tui

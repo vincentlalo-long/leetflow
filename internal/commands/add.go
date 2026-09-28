@@ -303,6 +303,11 @@ func autoDetectCategory(tags []api.TopicTag, ds map[string]string) string {
 				return target
 			}
 		}
+		if strings.HasPrefix(norm, "heap") {
+			if _, exists := ds["heap"]; exists {
+				return "heap"
+			}
+		}
 		for k := range ds {
 			kNorm := strings.ToLower(strings.ReplaceAll(strings.ReplaceAll(k, " ", ""), "-", ""))
 			if kNorm == norm || strings.Contains(norm, kNorm) {
@@ -312,4 +317,3 @@ func autoDetectCategory(tags []api.TopicTag, ds map[string]string) string {
 	}
 	return ""
 }
-

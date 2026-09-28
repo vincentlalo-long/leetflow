@@ -18,19 +18,24 @@ jobs:
         include:
           - goos: linux
             goarch: amd64
-            output_name: leet-linux-amd64
+            output_name: leet-cli-linux-amd64
+            tui_output_name: leet-tui-linux-amd64
           - goos: linux
             goarch: arm64
-            output_name: leet-linux-arm64
+            output_name: leet-cli-linux-arm64
+            tui_output_name: leet-tui-linux-arm64
           - goos: darwin
             goarch: amd64
-            output_name: leet-darwin-amd64
+            output_name: leet-cli-darwin-amd64
+            tui_output_name: leet-tui-darwin-amd64
           - goos: darwin
             goarch: arm64
-            output_name: leet-darwin-arm64
+            output_name: leet-cli-darwin-arm64
+            tui_output_name: leet-tui-darwin-arm64
           - goos: windows
             goarch: amd64
-            output_name: leet-windows-amd64.exe
+            output_name: leet-cli-windows-amd64.exe
+            tui_output_name: leet-tui-windows-amd64.exe
 
     steps:
       - name: Checkout code
@@ -46,13 +51,20 @@ jobs:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
         run: |
-          go build -ldflags="-s -w -X 'leetcli/internal/commands.Version=${{ github.ref_name }}'" -o "${{ matrix.output_name }}" .
+          go build -ldflags="-s -w -X 'leetcli/internal/commands.Version=${{ github.ref_name }}'" -o "${{ matrix.output_name }}" ./cmd/leet
+          go build -ldflags="-s -w -X 'leetcli/internal/commands.Version=${{ github.ref_name }}'" -o "${{ matrix.tui_output_name }}" ./cmd/leet-tui
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.output_name }}
+          name: leet-${{ matrix.goos }}-${{ matrix.goarch }}
           path: ${{ matrix.output_name }}
+
+      - name: Upload TUI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: leet-tui-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: ${{ matrix.tui_output_name }}
 
   publish-release:
     name: Publish GitHub Release

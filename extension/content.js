@@ -239,18 +239,56 @@ function metadata() {
   };
 }
 
-function showNotePrompt(problem, onComplete) {
-  if (document.getElementById("leetflow-toast")) return;
+function showToast(contentHtml) {
+  let toast = document.getElementById("leetflow-toast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "leetflow-toast";
+    document.body.appendChild(toast);
+  }
+  toast.innerHTML = contentHtml;
+  return toast;
+}
+
+function closeToast() {
+  const toast = document.getElementById("leetflow-toast");
+  if (toast) {
+    toast.remove();
+  }
+  isPrompting = false;
+}
+
+function showUnconfiguredNotice() {
+  isPrompting = true;
+  const toast = showToast(`
+    <div class="leetflow-header">
+      <span class="leetflow-title" style="color: #bf8700;">⚠️ GitHub Not Connected</span>
+      <button class="leetflow-close-x" id="leetflow-x">✕</button>
+    </div>
+    <p style="margin: 8px 0; font-size: 12px; color: #57606a; line-height: 1.4;">
+      Solution saved locally! Connect your GitHub token & repository to enable auto-sync.
+    </p>
+    <div class="leetflow-footer">
+      <button class="leetflow-btn-secondary" id="leetflow-dismiss-btn">Later</button>
+      <button class="leetflow-btn-primary" id="leetflow-connect-btn">Connect GitHub</button>
+    </div>
+  `);
+
+  toast.querySelector("#leetflow-x")?.addEventListener("click", closeToast);
+  toast.querySelector("#leetflow-dismiss-btn")?.addEventListener("click", closeToast);
+  toast.querySelector("#leetflow-connect-btn")?.addEventListener("click", () => {
+    chrome.runtime.sendMessage({ type: "open-options" });
+    closeToast();
+  });
+}
+
+function showNotePrompt(problem, isConfigured) {
   isPrompting = true;
 
-  const toast = document.createElement("div");
-  toast.id = "leetflow-toast";
-  let countdown = 15;
-
-  toast.innerHTML = `
+  const toast = showToast(`
     <div class="leetflow-header">
       <span class="leetflow-title">🎉 Accepted! Add note & sync</span>
-      <span class="leetflow-timer" id="leetflow-countdown">${countdown}s</span>
+      <button class="leetflow-close-x" id="leetflow-x">✕</button>
     </div>
     <div class="leetflow-metrics">
       <span>⏱️ ${problem.timeSpent}</span>
@@ -260,52 +298,69 @@ function showNotePrompt(problem, onComplete) {
       <textarea id="leetflow-note-input" placeholder="Aha! moment, key trick, or mistake to remember..."></textarea>
     </div>
     <div class="leetflow-footer">
-      <button class="leetflow-btn-secondary" id="leetflow-skip-btn">Skip & Sync</button>
+      <button class="leetflow-btn-secondary" id="leetflow-skip-btn">Skip Note & Sync</button>
       <button class="leetflow-btn-primary" id="leetflow-sync-btn">Save & Sync</button>
     </div>
-  `;
+  `);
 
-  document.body.appendChild(toast);
   const textarea = toast.querySelector("#leetflow-note-input");
   textarea.focus();
 
-  let timerId = null;
-
-  const finish = (note) => {
-    if (timerId) clearInterval(timerId);
+  const handleSync = (note) => {
     problem.notes = (note || "").trim();
     toast.innerHTML = `<div class="leetflow-header"><span class="leetflow-title">🚀 Syncing to GitHub...</span></div>`;
-    setTimeout(() => {
-      toast.remove();
-      isPrompting = false;
-      onComplete(problem);
-    }, 600);
+
+    sendSolution(problem, (res) => {
+      if (!res?.configured) {
+        showUnconfiguredNotice();
+        return;
+      }
+
+      if (res?.syncResult?.failed > 0) {
+        const errMsg = res.syncResult.errors?.[0] || "Sync failed. Check your settings.";
+        toast.innerHTML = `
+          <div class="leetflow-header"><span class="leetflow-title" style="color:#cf222e;">❌ Sync failed</span><button class="leetflow-close-x" id="leetflow-x">✕</button></div>
+          <p style="margin: 6px 0; font-size: 12px; color: #57606a;">${errMsg}</p>
+          <div class="leetflow-footer">
+            <button class="leetflow-btn-secondary" id="leetflow-dismiss-btn">Dismiss</button>
+            <button class="leetflow-btn-primary" id="leetflow-connect-btn">Settings</button>
+          </div>
+        `;
+        toast.querySelector("#leetflow-x")?.addEventListener("click", closeToast);
+        toast.querySelector("#leetflow-dismiss-btn")?.addEventListener("click", closeToast);
+        toast.querySelector("#leetflow-connect-btn")?.addEventListener("click", () => {
+          chrome.runtime.sendMessage({ type: "open-options" });
+          closeToast();
+        });
+      } else {
+        toast.innerHTML = `
+          <div class="leetflow-header"><span class="leetflow-title" style="color:#1a7f37;">✅ Synced to GitHub!</span></div>
+          <p style="margin: 4px 0; font-size: 12px; color: #57606a;">Saved to your repository archive.</p>
+        `;
+        setTimeout(closeToast, 2500);
+      }
+    });
   };
 
-  timerId = setInterval(() => {
-    countdown--;
-    const timerEl = document.getElementById("leetflow-countdown");
-    if (timerEl) timerEl.textContent = `${countdown}s`;
-    if (countdown <= 0) {
-      finish(textarea.value);
-    }
-  }, 1000);
-
-  toast.querySelector("#leetflow-sync-btn").addEventListener("click", () => finish(textarea.value));
-  toast.querySelector("#leetflow-skip-btn").addEventListener("click", () => finish(""));
+  toast.querySelector("#leetflow-x")?.addEventListener("click", closeToast);
+  toast.querySelector("#leetflow-sync-btn")?.addEventListener("click", () => handleSync(textarea.value));
+  toast.querySelector("#leetflow-skip-btn")?.addEventListener("click", () => handleSync(""));
 
   textarea.addEventListener("keydown", (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-      finish(textarea.value);
+      handleSync(textarea.value);
     }
   });
 }
 
-function sendSolution(problem) {
+function sendSolution(problem, callback) {
   try {
-    chrome.runtime.sendMessage({ type: "accepted-solution", problem });
+    chrome.runtime.sendMessage({ type: "accepted-solution", problem }, (response) => {
+      if (callback) callback(response);
+    });
   } catch (error) {
     console.warn("[LeetFlow] Could not send message to extension background:", error);
+    if (callback) callback({ ok: false, error: error.message });
   }
 }
 
@@ -323,13 +378,27 @@ function syncIfAccepted() {
 
   try {
     chrome.storage?.local?.get(["settings"], (res) => {
-      const shouldPrompt = res?.settings?.promptNotes !== false;
-      if (shouldPrompt) {
-        showNotePrompt(problem, (finalProblem) => {
-          sendSolution(finalProblem);
-        });
-      } else {
+      const settings = res?.settings || {};
+      const isConfigured = Boolean(settings.githubToken && settings.owner && settings.repo);
+      const shouldPrompt = settings.promptNotes !== false;
+
+      if (!isConfigured) {
         sendSolution(problem);
+        showUnconfiguredNotice();
+        return;
+      }
+
+      if (shouldPrompt) {
+        showNotePrompt(problem, isConfigured);
+      } else {
+        sendSolution(problem, (syncRes) => {
+          if (syncRes?.syncResult?.synced > 0) {
+            showToast(`
+              <div class="leetflow-header"><span class="leetflow-title" style="color:#1a7f37;">✅ Synced to GitHub!</span></div>
+            `);
+            setTimeout(closeToast, 2000);
+          }
+        });
       }
     });
   } catch {

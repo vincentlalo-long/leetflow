@@ -37,6 +37,22 @@
   gap: 6px;
 }
 
+.leetflow-close-x {
+  background: none !important;
+  border: none !important;
+  color: #57606a !important;
+  font-size: 16px !important;
+  line-height: 1 !important;
+  padding: 0 4px !important;
+  margin: 0 !important;
+  width: auto !important;
+  cursor: pointer;
+}
+
+.leetflow-close-x:hover {
+  color: #24292f !important;
+}
+
 .leetflow-timer {
   font-size: 11px;
   color: #656d76;

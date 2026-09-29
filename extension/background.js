@@ -4,8 +4,15 @@ import { problemPath, renderProblemReadme, renderRootReadme, slugify } from "./t
 import { ensureReview, dueReviews, gradeReview } from "./review.js";
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === "open-options") {
+    chrome.runtime.openOptionsPage();
+    sendResponse({ ok: true });
+    return true;
+  }
   if (message.type === "accepted-solution") {
-    enqueue(message.problem).then(() => sendResponse({ ok: true })).catch((error) => sendResponse({ ok: false, error: error.message }));
+    enqueue(message.problem)
+      .then((res) => sendResponse({ ok: true, ...res }))
+      .catch((error) => sendResponse({ ok: false, error: error.message }));
     return true;
   }
   if (message.type === "get-state") {
@@ -32,17 +39,35 @@ chrome.runtime.onInstalled.addListener(processQueue);
 async function enqueue(problem) {
   const state = await loadState();
   const key = `${problem.number}:${problem.language}`;
-  if (state.synced[key] || state.queue.some((job) => job.key === key)) return;
-  const reviewed = ensureReview(problem);
-  state.queue.push({ key, problem: reviewed, attempts: 0, status: "pending", createdAt: new Date().toISOString() });
-  state.reviews[key] = reviewed;
+  const configured = Boolean(state.settings.githubToken && state.settings.owner && state.settings.repo);
+
+  if (state.synced[key]) {
+    return { alreadySynced: true, configured, key };
+  }
+
+  let job = state.queue.find((j) => j.key === key);
+  if (!job) {
+    const reviewed = ensureReview(problem);
+    job = { key, problem: reviewed, attempts: 0, status: "pending", createdAt: new Date().toISOString() };
+    state.queue.push(job);
+    state.reviews[key] = reviewed;
+  } else {
+    job.problem = { ...job.problem, ...problem };
+    job.status = "pending";
+    job.error = "";
+  }
   await saveState(state);
-  if (state.settings.autoSync) await processQueue();
+
+  let syncResult = null;
+  if (configured && state.settings.autoSync) {
+    syncResult = await processQueue();
+  }
+  return { key, configured, syncResult };
 }
 
 async function processQueue() {
   const state = await loadState();
-  const result = { synced: 0, failed: 0 };
+  const result = { synced: 0, failed: 0, errors: [] };
   for (const job of state.queue) {
     if (job.status === "done") continue;
     try {
@@ -56,6 +81,7 @@ async function processQueue() {
       job.error = error.message;
       job.attempts++;
       result.failed++;
+      result.errors.push(error.message);
     }
   }
   state.queue = state.queue.filter((job) => job.status !== "done");

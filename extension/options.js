@@ -24,7 +24,19 @@ async function save() {
   }
   const state = await loadState();
   await saveState({ ...state, settings });
+  $("message").style.color = "#1a7f37";
   $("message").textContent = "Saved and verified.";
+
+  try {
+    const queueRes = await new Promise((resolve) =>
+      chrome.runtime.sendMessage({ type: "retry-queue" }, resolve)
+    );
+    if (queueRes?.synced > 0) {
+      $("message").textContent = `Saved and verified! Synced ${queueRes.synced} pending solution(s) to GitHub.`;
+    }
+  } catch {
+    // Handled
+  }
 }
 
 $("save").addEventListener("click", () => save().catch((error) => {

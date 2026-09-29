@@ -5,9 +5,11 @@ const fields = ["githubToken", "owner", "repo", "branch", "rootDir", "autoSync",
 const $ = (id) => document.getElementById(id);
 
 async function load() {
-  const { settings } = await loadState();
+  const state = await loadState();
+  const settings = state?.settings || {};
   for (const field of fields) {
     const node = $(field);
+    if (!node) continue;
     if (node.type === "checkbox") node.checked = Boolean(settings[field]);
     else node.value = settings[field] || "";
   }
@@ -17,13 +19,14 @@ async function save() {
   const settings = {};
   for (const field of fields) {
     const node = $(field);
+    if (!node) continue;
     settings[field] = node.type === "checkbox" ? node.checked : node.value.trim();
   }
   if (settings.githubToken && settings.owner && settings.repo) {
     await checkRepository(settings.githubToken, settings.owner, settings.repo);
   }
   const state = await loadState();
-  await saveState({ ...state, settings });
+  await saveState({ ...(state || {}), settings });
   $("message").style.color = "#1a7f37";
   $("message").textContent = "Saved and verified.";
 

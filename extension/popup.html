@@ -1,0 +1,50 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>LeetFlow Sync</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main>
+    <header><strong>LeetFlow Sync</strong><span id="status">Loading…</span></header>
+    
+    <section id="summary"></section>
+    <button id="retry">Retry failed jobs</button>
+
+    <section id="roadmaps">
+      <strong>Curated Roadmaps</strong>
+      <div class="roadmap-item">
+        <div class="roadmap-label"><span>Blind 75</span><span id="b75-count">0/75 (0%)</span></div>
+        <div class="progress-bar"><div class="progress-fill" id="b75-bar" style="width: 0%;"></div></div>
+      </div>
+      <div class="roadmap-item">
+        <div class="roadmap-label"><span>NeetCode 150</span><span id="nc150-count">0/150 (0%)</span></div>
+        <div class="progress-bar"><div class="progress-fill" id="nc150-bar" style="width: 0%;"></div></div>
+      </div>
+    </section>
+
+    <section id="review"></section>
+    <div id="grades">
+      <button data-grade="again">Again</button>
+      <button data-grade="hard">Hard</button>
+      <button data-grade="good">Good</button>
+      <button data-grade="easy">Easy</button>
+    </div>
+
+    <div class="toggles">
+      <label class="toggle-row">
+        <input type="checkbox" id="interviewMode">
+        <span>Interview Mode (Anti-spoil tags)</span>
+      </label>
+    </div>
+
+    <div class="actions">
+      <button id="exportAnki" class="btn-secondary">Export to Anki</button>
+      <button id="options">Settings</button>
+    </div>
+    <p class="hint">Solve on LeetCode. Accepted solutions are queued and tracked automatically.</p>
+  </main>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

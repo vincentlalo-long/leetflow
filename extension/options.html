@@ -1,0 +1,21 @@
+<!doctype html>
+<html>
+<head><meta charset="utf-8"><title>LeetFlow Sync Options</title><link rel="stylesheet" href="options.css"></head>
+<body>
+  <main>
+    <h1>LeetFlow Sync</h1>
+    <p>Configure the GitHub repository used for generated solution templates.</p>
+    <label>GitHub token <input id="githubToken" type="password" autocomplete="off"></label>
+    <label>Owner <input id="owner" placeholder="your-github-name"></label>
+    <label>Repository <input id="repo" placeholder="leetcode-solutions"></label>
+    <label>Branch <input id="branch" value="main"></label>
+    <label>Root directory <input id="rootDir" value="LeetCode"></label>
+    <label><input id="autoSync" type="checkbox"> Sync automatically after Accepted</label>
+    <label><input id="updateRootReadme" type="checkbox"> Update generated root README</label>
+    <label><input id="promptNotes" type="checkbox"> Prompt for quick insight/notes upon Accepted</label>
+    <label><input id="interviewMode" type="checkbox"> Interview Mode (blur topic tags to prevent spoiler)</label>
+    <button id="save">Save settings</button><span id="message"></span>
+  </main>
+  <script type="module" src="options.js"></script>
+</body>
+</html>

@@ -1,153 +1,93 @@
-# leetflow
+# LeetFlow Sync
 
-[![CI](https://github.com/vincentlalo-long/leetflow/actions/workflows/ci.yml/badge.svg)](https://github.com/vincentlalo-long/leetflow/actions)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Go Version](https://img.shields.io/badge/Go-1.25+-00ADD8?logo=go)](https://go.dev/)
+A browser extension that syncs accepted LeetCode solutions to a GitHub repository and provides a local review queue.
 
-**A LeetCode companion with a lightweight CLI and a keyboard-driven terminal UI: solve locally, test offline, and actually remember solutions with spaced repetition.**
+## Features
 
-Solutions are stored as plain source files on disk, organized by data structure, and version-controlled with Git.
+- **Accepted-only sync**: Automatically captures accepted submissions from LeetCode.com and LeetCode.cn.
+- **Repository layout**: Saves solutions into numbered folders (`0001-two-sum/`) with proper file extensions and a generated problem `README.md`.
+- **Root catalog**: Maintains an index `README.md` organized by problem number and topic tags.
+- **Quick notes prompt**: Optional toast prompt when a submission is accepted to jot down key insights or tricks.
+- **Solve telemetry**: Records elapsed time and submission attempts (WA/TLE/AC) for each problem.
+- **Review queue**: Spaced repetition review scheduling in the extension popup with Again, Hard, Good, and Easy grades.
+- **Roadmap tracking**: Basic progress tracking for Blind 75 and NeetCode 150 problem lists.
+- **Interview mode**: Optional toggle to blur topic tags on problem statements to prevent spoilers while practicing.
+- **Export to Anki**: Export synced problems to a TSV file for import into Anki flashcards.
 
----
+## Workflow
 
-## ⚡ Features
-
-- 🖥️ **Separate interfaces**: `leet` is a lightweight command-line binary; `leet-tui` is the full interactive terminal UI built with Bubble Tea.
-- 🧪 **Offline Local Testing**: Test solutions against example test cases without internet or cookies (supports C++, Python, Java, Go).
-- 🧠 **FSRS Spaced Repetition**: Modern DSR memory model (Free Spaced Repetition Scheduler) with 4 recall grades (`again`, `hard`, `good`, `easy`) and retrievability tracking.
-- 📂 **Structured Workspace**: Solutions auto-sorted into topic directories (`array/`, `tree/`, `dp/`, `graph/`).
-- 🔄 **Git Integration**: Auto-commit progress and push to your solutions repository with `leet sync`.
-- 🌐 **LeetCode Integration**: Fetch daily challenges, submit solutions, and track submission metrics directly from terminal.
-
----
-
-## 📦 Installation
-
-Requires [Go 1.25+](https://go.dev/dl/).
-
-### Pre-built Binaries (GitHub Releases)
-Download the latest CLI and TUI binaries for Linux, macOS, or Windows from the [Releases](https://github.com/vincentlalo-long/leetflow/releases) page.
-
-### Build from Source
-
-#### Linux / macOS:
-```bash
-git clone https://github.com/vincentlalo-long/leetflow.git
-cd leetflow
-make install
-# Optional: build the terminal UI with `make build-tui`
-# or: ./build.sh
+```text
+LeetCode Accepted
+       ↓
+Content script captures code & metadata
+       ↓
+GitHub Contents API commit (Solution + README)
+       ↓
+Local review queue in extension popup
 ```
 
-#### Windows (PowerShell):
-```powershell
-git clone https://github.com/vincentlalo-long/leetflow.git
-cd leetflow
-powershell -ExecutionPolicy Bypass -File build.ps1
-# or: go build -o leet.exe .
+## Generated Repository Structure
+
+```text
+LeetCode/
+├── README.md
+└── 0001-two-sum/
+    ├── README.md
+    └── two-sum.cpp
 ```
 
----
+## Installation and Setup
 
-## 🚀 Quick Start
+### 1. Build
+
+Ensure Node.js is installed:
 
 ```bash
-# CLI: explicit commands, suitable for scripts and CI
-# 1. Setup wizard
-leet init
-
-# 2. Add problem #1 (Two Sum) with template & README
-leet add 1
-
-# 3. Open in your preferred editor
-leet open 1
-
-# 4. Test locally with example test cases (offline, no cookies needed)
-leet test 1 --local
-
-# 5. Submit directly to LeetCode (requires session cookie)
-leet submit 1
-
-# 6. Review due problems with FSRS spaced repetition
-leet review
-# or rate recall directly:
-leet review 1 --grade easy
-
-# 7. Commit & push solutions to your git repository
-leet sync
-
-# Interactive terminal UI
-leet-tui
+node build.mjs
 ```
 
----
+This outputs ready-to-load extension packages into `dist/chrome/` and `dist/firefox/`.
 
-## 🛠️ Commands Reference
+### 2. Load Extension
 
-| Command | Description |
-|---------|-------------|
-| `leet` | Lightweight CLI for explicit commands, scripts, and CI |
-| `leet-tui` | Launch the interactive Terminal UI |
-| `leet init` | First-run interactive setup wizard |
-| `leet add <num>` | Fetch & scaffold problem from LeetCode |
-| `leet daily` | Fetch today's Daily Challenge |
-| `leet random` | Pick a random problem (filter by difficulty/tag) |
-| `leet list` | List all local problems with solving status |
-| `leet search <query>` | Search local problems by name or number |
-| `leet view <num>` | Render problem description with styled markdown & diagrams |
-| `leet open <num>` | Open problem in your editor (split layout) |
-| `leet run <num>` | Compile & run local solution |
-| `leet test <num> --local` | Run offline local test harness |
-| `leet test <num>` | Run remote test on LeetCode API |
-| `leet submit <num>` | Submit solution to LeetCode |
-| `leet verify <file>` | Headless test runner (useful for CI) |
-| `leet review` | Review problems due in spaced repetition queue |
-| `leet stats` | Workspace stats, solve rates & category breakdown |
-| `leet doctor` | System health check (compiler, git, credentials) |
-| `leet readme` | Re-generate catalog README.md of solved problems |
-| `leet sync` | Auto-commit and git push solutions |
-| `leet completion <shell>` | Generate shell completions (bash, zsh, fish) |
+- **Chrome / Chromium**:
+  1. Go to `chrome://extensions`.
+  2. Enable **Developer mode** (top-right).
+  3. Click **Load unpacked** and select the `dist/chrome/` folder.
 
----
+- **Firefox**:
+  1. Go to `about:debugging#/runtime/this-firefox`.
+  2. Click **Load Temporary Add-on** and select `dist/firefox/manifest.json`.
 
-## ⚙️ Configuration
+### 3. Configuration
 
-Settings are managed via `config.json` (committed) and `config.local.json` (git-ignored, saved with `0600` permissions for credential protection).
+1. Open the extension popup and click **Settings** (or right-click the extension icon -> Options).
+2. Enter:
+   - **GitHub token**: Personal access token with repository write permissions.
+   - **Owner**: Your GitHub username or organization.
+   - **Repository**: The repository name (e.g. `leetcode-solutions`).
+   - **Branch**: Target branch (default `main`).
+   - **Root directory**: Target directory in repo (default `LeetCode`).
+3. Click **Save settings**.
 
-| Setting | Key | Env var | Description |
-|---------|-----|---------|-------------|
-| Workspace directory | `base_dir` | — | Root directory for problem files |
-| Default language | `default_language` | — | Default language (`cpp`, `python3`, `golang`, `java`) |
-| Editor command | `editor` | — | Editor to launch (`nvim`, `code`, `vim`) |
-| LeetCode session | `leetcode_session` | `LEETCODE_SESSION` | `LEETCODE_SESSION` cookie from browser |
-| LeetCode CSRF token | `leetcode_csrf` | `LEETCODE_CSRF` | `csrftoken` cookie from browser |
+## Development Checks
 
-Run `leet config` to view or edit configuration interactively.
+Run syntax validation and smoke checks:
 
----
-
-## 🧪 Testing
-
-Run all unit tests:
 ```bash
-go test -v ./...
+for f in extension/*.js; do node --check "$f"; done
+node --input-type=module <<'EOF'
+import assert from "node:assert/strict";
+import { renderRootReadme } from "./extension/templates.js";
+assert.match(renderRootReadme([], { rootDir: "LeetCode" }), /LeetCode Solutions/);
+console.log("smoke test passed");
+EOF
 ```
 
-Run tests with data race detector:
-```bash
-go test -race ./...
-```
+## Security Note
 
----
+This developer version stores the GitHub token locally in `chrome.storage.local`. Do not commit extension storage exports or share tokens.
 
-## 🙏 Acknowledgements & Credits
+## License
 
-- **[FSRS Algorithm](https://github.com/open-spaced-repetition/fsrs4anki)**: Spaced repetition scheduling is powered by the Free Spaced Repetition Scheduler algorithm by Jarrett Ye and the Open Spaced Repetition team, implemented via [`open-spaced-repetition/go-fsrs`](https://github.com/open-spaced-repetition/go-fsrs).
-- **[Charm](https://charm.sh/)**: Terminal UI components built with [Bubble Tea](https://github.com/charmbracelet/bubbletea) and [Lip Gloss](https://github.com/charmbracelet/lipgloss).
-- **[LeetCode](https://leetcode.com/)**: Problem descriptions, testing APIs, and judging platform.
-
----
-
-## 📄 License
-
-[MIT License](LICENSE) © 2026 vincentlalo-long
+MIT License. See [LICENSE](LICENSE).

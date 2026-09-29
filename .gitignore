@@ -1,28 +1,7 @@
-# Python (archived version)
-__pycache__/
-*.py[cod]
-.pytest_cache/
-.venv/
-venv/
-
-# Go CLI build artifacts
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
-*.class
-*.o
-*.tmp
-a.out
-leet
-leetcli
-bin/
+# Browser extension development artifacts
+node_modules/
 dist/
+*.zip
 
-
-# Local machine-specific config (keeps LeetCode cookies out of git)
-config.local.json
-
-# Personal progress / review data
-.leet/
+# Local browser exports and test artifacts
+.extension-state/

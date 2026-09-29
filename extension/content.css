@@ -1,0 +1,153 @@
+/* LeetFlow In-page Toast UI */
+#leetflow-toast {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 340px;
+  background: #ffffff;
+  color: #1f2328;
+  border: 1px solid #d0d7de;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(140, 149, 159, 0.25);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  font-size: 13px;
+  z-index: 999999;
+  padding: 14px;
+  box-sizing: border-box;
+  animation: leetflow-slide-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes leetflow-slide-in {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.leetflow-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.leetflow-title {
+  font-weight: 600;
+  color: #1a7f37;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.leetflow-timer {
+  font-size: 11px;
+  color: #656d76;
+  background: #f6f8fa;
+  padding: 2px 6px;
+  border-radius: 12px;
+}
+
+.leetflow-metrics {
+  font-size: 11px;
+  color: #57606a;
+  margin-bottom: 8px;
+  display: flex;
+  gap: 12px;
+}
+
+.leetflow-body textarea {
+  width: 100%;
+  height: 60px;
+  box-sizing: border-box;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  padding: 8px;
+  font-size: 12px;
+  font-family: inherit;
+  resize: vertical;
+  outline: none;
+  background: #f6f8fa;
+  color: #1f2328;
+}
+
+.leetflow-body textarea:focus {
+  background: #ffffff;
+  border-color: #0969da;
+  box-shadow: 0 0 0 2px rgba(9, 105, 218, 0.2);
+}
+
+.leetflow-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.leetflow-footer button {
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.leetflow-btn-primary {
+  background: #1f883d;
+  color: #ffffff;
+  border: 1px solid rgba(31, 35, 40, 0.15);
+}
+
+.leetflow-btn-primary:hover {
+  background: #1a7f37;
+}
+
+.leetflow-btn-secondary {
+  background: #f6f8fa;
+  color: #24292f;
+  border: 1px solid #d0d7de;
+}
+
+.leetflow-btn-secondary:hover {
+  background: #eaeef2;
+}
+
+/* Interview Mode Styles (Blur topic tags to prevent spoiler) */
+body.leetflow-interview-mode a[href*="/tag/"],
+body.leetflow-interview-mode a[href*="/topics/"],
+body.leetflow-interview-mode [class*="topic-tag"],
+body.leetflow-interview-mode [class*="tag__"] {
+  filter: blur(5px);
+  user-select: none;
+  transition: filter 0.2s ease;
+}
+
+body.leetflow-interview-mode a[href*="/tag/"]:hover,
+body.leetflow-interview-mode a[href*="/topics/"]:hover,
+body.leetflow-interview-mode [class*="topic-tag"]:hover,
+body.leetflow-interview-mode [class*="tag__"]:hover {
+  filter: none;
+  user-select: auto;
+}
+
+/* Floating Session Timer in bottom-left */
+#leetflow-session-timer {
+  position: fixed;
+  bottom: 16px;
+  left: 16px;
+  background: rgba(31, 35, 40, 0.85);
+  color: #ffffff;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-family: monospace;
+  z-index: 999998;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+  backdrop-filter: blur(4px);
+  transition: opacity 0.2s ease;
+}
+
+#leetflow-session-timer:hover {
+  opacity: 0.9;
+}

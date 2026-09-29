@@ -91,20 +91,26 @@ async function processQueue() {
 
 async function syncJob(job, state) {
   const settings = state.settings;
-  if (!settings.githubToken || !settings.owner || !settings.repo) {
+  const token = settings.githubToken;
+  if (!token || !settings.owner || !settings.repo) {
     throw new Error("Configure GitHub token, owner, and repository in Options first.");
   }
   const base = problemPath(job.problem, settings);
   const ext = job.problem.extension || "txt";
   const solutionFileName = `${slugify(job.problem.slug || job.problem.title)}.${ext}`;
+
+  console.log(`[LeetFlow] Syncing problem #${job.problem.number} to ${settings.owner}/${settings.repo}`);
+
   await putFile({
     ...settings,
+    token,
     path: `${base}/${solutionFileName}`,
     content: job.problem.code,
     message: `sync: ${job.problem.number}. ${job.problem.title}`
   });
   await putFile({
     ...settings,
+    token,
     path: `${base}/README.md`,
     content: renderProblemReadme(job.problem, settings),
     message: `docs: add README for ${job.problem.number}. ${job.problem.title}`
@@ -114,9 +120,11 @@ async function syncJob(job, state) {
     const merged = [...problems.filter((p) => p.number !== job.problem.number), job.problem];
     state.syncedProblems = Object.fromEntries(merged.map((p) => [`${p.number}:${p.language}`, p]));
     state.reviews[job.key] = ensureReview(job.problem);
+    const rootPath = settings.rootDir ? `${settings.rootDir.replace(/\/+$/, "")}/README.md` : "README.md";
     await putFile({
       ...settings,
-      path: `${settings.rootDir}/README.md`,
+      token,
+      path: rootPath,
       content: renderRootReadme(Object.values(state.syncedProblems), settings),
       message: "docs: update LeetCode index"
     });

@@ -13,10 +13,14 @@ async function refresh() {
   const failed = queue.filter((job) => job.status === "failed");
   
   document.querySelector("#status").textContent = state.settings.repo ? `${state.settings.owner}/${state.settings.repo}` : "Not configured";
+  const errorHtml = failed.length > 0 && failed[0].error
+    ? `<div style="color: #cf222e; font-size: 11px; margin-top: 6px; padding: 4px 6px; background: #ffebe9; border-radius: 4px; word-break: break-word;">⚠️ ${failed[0].error}</div>`
+    : "";
   document.querySelector("#summary").innerHTML = `
     <div class="row"><span>Pending</span><strong>${queue.filter((job) => job.status === "pending").length}</strong></div>
     <div class="row"><span>Failed</span><strong class="${failed.length ? "failed" : ""}">${failed.length}</strong></div>
-    <div class="row"><span>Synced records</span><strong>${Object.keys(state.synced || {}).length}</strong></div>`;
+    <div class="row"><span>Synced records</span><strong>${Object.keys(state.synced || {}).length}</strong></div>
+    ${errorHtml}`;
 
   // Roadmap progress
   const syncedList = Object.values(state.syncedProblems || {});

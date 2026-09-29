@@ -34,28 +34,36 @@ async function request(token, path, options = {}) {
 }
 
 export async function getFile(token, owner, repo, branch, path) {
+  if (!token) return null;
   try {
-    return await request(token, `/repos/${owner}/${repo}/contents/${encodePath(path)}?ref=${encodeURIComponent(branch)}`);
+    const branchParam = branch ? `?ref=${encodeURIComponent(branch)}` : "";
+    return await request(token, `/repos/${owner}/${repo}/contents/${encodePath(path)}${branchParam}`);
   } catch (error) {
     if (error.message.startsWith("GitHub 404:")) return null;
     throw error;
   }
 }
 
-export async function putFile({ token, owner, repo, branch, path, content, message }) {
+export async function putFile({ token, githubToken, owner, repo, branch, path, content, message }) {
+  const authToken = token || githubToken;
+  if (!authToken) {
+    throw new Error("Missing GitHub token. Please enter your token in Settings.");
+  }
   for (let attempt = 0; attempt < 2; attempt++) {
-    const current = await getFile(token, owner, repo, branch, path);
+    const current = await getFile(authToken, owner, repo, branch, path);
     const body = {
       message,
-      content: btoa(unescape(encodeURIComponent(content))),
-      branch
+      content: btoa(unescape(encodeURIComponent(content || "")))
     };
+    if (branch) body.branch = branch;
     if (current?.sha) body.sha = current.sha;
     try {
-      return await request(token, `/repos/${owner}/${repo}/contents/${encodePath(path)}`, {
+      const res = await request(authToken, `/repos/${owner}/${repo}/contents/${encodePath(path)}`, {
         method: "PUT",
         body: JSON.stringify(body)
       });
+      console.log(`[LeetFlow] Successfully pushed ${path}`);
+      return res;
     } catch (error) {
       if (attempt === 0 && error.message.includes("409")) {
         await new Promise((resolve) => setTimeout(resolve, 600));
@@ -67,5 +75,6 @@ export async function putFile({ token, owner, repo, branch, path, content, messa
 }
 
 export async function checkRepository(token, owner, repo) {
+  if (!token) throw new Error("Missing GitHub token.");
   return request(token, `/repos/${owner}/${repo}`);
 }

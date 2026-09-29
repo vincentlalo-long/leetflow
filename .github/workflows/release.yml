@@ -1,0 +1,39 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish-release:
+    name: Build & Publish Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build Extension Packages
+        run: |
+          node build.mjs
+          cd dist
+          cp leetflow-chrome.zip leetflow-chrome-${{ github.ref_name }}.zip
+          cp leetflow-firefox.zip leetflow-firefox-${{ github.ref_name }}.zip
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            dist/leetflow-chrome-${{ github.ref_name }}.zip
+            dist/leetflow-firefox-${{ github.ref_name }}.zip
+          generate_release_notes: true

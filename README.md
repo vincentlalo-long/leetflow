@@ -36,28 +36,28 @@ LeetCode/
     └── two-sum.cpp
 ```
 
-## Installation and Setup
+## Installation
 
-### 1. Build
+### Option 1: Pre-built Package (Recommended)
 
-Ensure Node.js is installed:
+No Node.js or terminal required:
+
+1. Download `leetflow-chrome-v0.6.1.zip` from [Releases](https://github.com/vincentlalo-long/leetflow/releases).
+2. Extract the `.zip` file into a folder.
+3. In Chrome, open `chrome://extensions`.
+4. Enable **Developer mode** (top-right toggle).
+5. Click **Load unpacked** and select the extracted folder.
+
+*(For Firefox: download `leetflow-firefox-v0.6.1.zip`, open `about:debugging#/runtime/this-firefox`, click **Load Temporary Add-on**, and select the extracted `manifest.json`)*.
+
+### Option 2: Build from Source
 
 ```bash
+git clone https://github.com/vincentlalo-long/leetflow.git
+cd leetflow
 node build.mjs
 ```
-
-This outputs ready-to-load extension packages into `dist/chrome/` and `dist/firefox/`.
-
-### 2. Load Extension
-
-- **Chrome / Chromium**:
-  1. Go to `chrome://extensions`.
-  2. Enable **Developer mode** (top-right).
-  3. Click **Load unpacked** and select the `dist/chrome/` folder.
-
-- **Firefox**:
-  1. Go to `about:debugging#/runtime/this-firefox`.
-  2. Click **Load Temporary Add-on** and select `dist/firefox/manifest.json`.
+Load the generated `dist/chrome/` folder via **Load unpacked**.
 
 ### 3. Configuration
 

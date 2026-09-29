@@ -1,7 +1,10 @@
+import { execFile } from "node:child_process";
 import { cp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 
+const execFileAsync = promisify(execFile);
 const root = dirname(fileURLToPath(import.meta.url));
 const source = join(root, "extension");
 const dist = join(root, "dist");
@@ -20,6 +23,15 @@ function stripModuleSyntax(sourceText) {
     .replace(/^import .*?;\s*$/gm, "")
     .replace(/^export\s+(?=(async\s+)?function|const|let|var|class)/gm, "")
     .replace(/^export\s*\{[^}]+\};?\s*$/gm, "");
+}
+
+async function zipDirectory(sourceDir, outZipPath) {
+  try {
+    await rm(outZipPath, { force: true });
+    await execFileAsync("zip", ["-r", "-q", outZipPath, "."], { cwd: sourceDir });
+  } catch (err) {
+    console.warn(`Zip packaging skipped for ${sourceDir}: ${err.message}`);
+  }
 }
 
 async function writePackage(name, manifestName, backgroundName) {
@@ -45,4 +57,8 @@ async function writePackage(name, manifestName, backgroundName) {
 
 await writePackage("chrome", "manifest.chrome.json", "background.js");
 await writePackage("firefox", "manifest.firefox.json", "background.firefox.js");
-console.log("Built dist/chrome and dist/firefox");
+
+await zipDirectory(join(dist, "chrome"), join(dist, "leetflow-chrome.zip"));
+await zipDirectory(join(dist, "firefox"), join(dist, "leetflow-firefox.zip"));
+
+console.log("Built dist/chrome, dist/firefox, and zip packages.");

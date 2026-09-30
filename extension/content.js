@@ -185,20 +185,199 @@ function isAccepted() {
   return false;
 }
 
-function metadata() {
-  const match = location.pathname.match(/\/problems\/([^/]+)/);
-  if (!match) return null;
+const problemCache = {};
 
-  let rawTitle = text("h1") || text('[data-cy="question-title"]') || document.title.replace(/\s*-\s*LeetCode.*$/i, "").trim();
-  const rawNumber = text('[data-cy="question-title"]')?.match(/^(\d+)/)?.[1] ||
-    rawTitle.match(/^(\d+)\.\s+/)?.[1] ||
-    document.body.innerText.match(/^\s*(\d+)\.\s+/m)?.[1] || "";
-  const title = rawTitle.replace(/^\d+\.\s*/, "").trim();
+function getSlug() {
+  const match = location.pathname.match(/\/problems\/([^/]+)/);
+  return match ? match[1] : "";
+}
+
+async function fetchGraphQLProblem(slug) {
+  if (!slug) return null;
+  try {
+    const endpoint = location.hostname.includes("leetcode.cn")
+      ? "https://leetcode.cn/graphql"
+      : "https://leetcode.com/graphql";
+
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query: `
+          query questionData($titleSlug: String!) {
+            question(titleSlug: $titleSlug) {
+              questionFrontendId
+              title
+              difficulty
+              topicTags {
+                name
+              }
+              content
+            }
+          }
+        `,
+        variables: { titleSlug: slug }
+      })
+    });
+
+    if (!res.ok) return null;
+    const json = await res.json();
+    return json?.data?.question || null;
+  } catch (e) {
+    console.warn("[LeetFlow] Failed to fetch GraphQL problem info:", e);
+    return null;
+  }
+}
+
+function extractFromDOM(slug) {
+  try {
+    const nextDataEl = document.getElementById("__NEXT_DATA__");
+    if (nextDataEl?.textContent) {
+      const data = JSON.parse(nextDataEl.textContent);
+      const findQuestion = (obj, depth = 0) => {
+        if (!obj || depth > 8 || typeof obj !== "object") return null;
+        if (obj.questionFrontendId && (!slug || obj.titleSlug === slug)) {
+          return obj;
+        }
+        for (const k of Object.keys(obj)) {
+          const found = findQuestion(obj[k], depth + 1);
+          if (found) return found;
+        }
+        return null;
+      };
+      const q = findQuestion(data);
+      if (q?.questionFrontendId) {
+        return {
+          number: String(parseInt(q.questionFrontendId, 10)),
+          title: q.title || "",
+          difficulty: q.difficulty || "",
+          tags: q.topicTags?.map((t) => t.name) || []
+        };
+      }
+    }
+  } catch {
+    // Ignore JSON parse error
+  }
+
+  const candidateSelectors = [
+    'div[class*="text-title-large"]',
+    `a[href*="/problems/${slug}"]`,
+    'div[data-cy="question-title"]',
+    'div[class*="title__"]',
+    '[data-track-load="description_content"] h1',
+    '[data-track-load="description_content"] h4',
+    'h1',
+    'h4'
+  ];
+
+  for (const sel of candidateSelectors) {
+    const elements = document.querySelectorAll(sel);
+    for (const el of elements) {
+      const t = el.textContent?.trim() || "";
+      const match = t.match(/^(\d+)\s*[\.\:\-]?\s+(.+)$/);
+      if (match) {
+        return {
+          number: String(parseInt(match[1], 10)),
+          title: match[2].trim()
+        };
+      }
+    }
+  }
+
+  const links = document.querySelectorAll('a[href^="/problems/"]');
+  for (const link of links) {
+    const t = link.textContent?.trim() || "";
+    const match = t.match(/^(\d+)\s*[\.\:\-]?\s+(.+)$/);
+    if (match) {
+      return {
+        number: String(parseInt(match[1], 10)),
+        title: match[2].trim()
+      };
+    }
+  }
+
+  const titleMatch = document.title.match(/^(\d+)\s*[\.\:\-]?\s+(.*?)(?:\s*-\s*LeetCode.*)?$/i);
+  if (titleMatch) {
+    return {
+      number: String(parseInt(titleMatch[1], 10)),
+      title: titleMatch[2].trim()
+    };
+  }
+
+  return null;
+}
+
+async function loadProblemMetadata(slug) {
+  if (!slug) return null;
+  if (problemCache[slug]?.number && /^\d+$/.test(problemCache[slug].number)) {
+    return problemCache[slug];
+  }
+
+  const domInfo = extractFromDOM(slug);
+  if (domInfo?.number) {
+    problemCache[slug] = { ...(problemCache[slug] || {}), ...domInfo };
+  }
+
+  const gqlData = await fetchGraphQLProblem(slug);
+  if (gqlData) {
+    const num = gqlData.questionFrontendId
+      ? String(parseInt(gqlData.questionFrontendId, 10))
+      : (problemCache[slug]?.number || "");
+
+    problemCache[slug] = {
+      number: num,
+      title: gqlData.title || problemCache[slug]?.title || slug,
+      difficulty: gqlData.difficulty || problemCache[slug]?.difficulty || "Unknown",
+      tags: gqlData.topicTags?.map((t) => t.name) || problemCache[slug]?.tags || [],
+      description: gqlData.content || problemCache[slug]?.description || ""
+    };
+  }
+
+  return problemCache[slug];
+}
+
+let lastSeenSlug = "";
+function checkSlugChange() {
+  const slug = getSlug();
+  if (slug && slug !== lastSeenSlug) {
+    lastSeenSlug = slug;
+    loadProblemMetadata(slug);
+  }
+}
+window.addEventListener("popstate", checkSlugChange);
+
+async function metadata() {
+  const slug = getSlug();
+  if (!slug) return null;
+
+  let meta = problemCache[slug];
+  if (!meta || !meta.number || !/^\d+$/.test(meta.number)) {
+    meta = await loadProblemMetadata(slug);
+  }
+
+  let number = meta?.number || "";
+  let title = meta?.title || "";
+
+  if (!number || !/^\d+$/.test(number)) {
+    const dom = extractFromDOM(slug);
+    if (dom?.number) {
+      number = dom.number;
+      if (!title) title = dom.title;
+    }
+  }
+
+  if (!title) {
+    let rawTitle = text('div[class*="text-title-large"]') ||
+      text('[data-cy="question-title"]') ||
+      text("h1") ||
+      document.title.replace(/\s*-\s*LeetCode.*$/i, "").trim();
+    title = rawTitle.replace(/^\d+\.\s*/, "").trim() || slug;
+  }
 
   const difficultyEl = document.querySelector(
     '[class*="text-difficulty"], [data-cy="difficulty"], [class*="difficulty-"]'
   );
-  let difficulty = difficultyEl?.textContent?.trim() || "Unknown";
+  let difficulty = meta?.difficulty || difficultyEl?.textContent?.trim() || "Unknown";
   if (!["Easy", "Medium", "Hard"].includes(difficulty)) {
     if (/easy|简单/i.test(difficulty)) difficulty = "Easy";
     else if (/medium|中等/i.test(difficulty)) difficulty = "Medium";
@@ -206,9 +385,10 @@ function metadata() {
     else difficulty = "Unknown";
   }
 
-  const tags = [...document.querySelectorAll('a[href*="/tag/"], a[href*="/topics/"]')]
+  const domTags = [...document.querySelectorAll('a[href*="/tag/"], a[href*="/topics/"]')]
     .map((node) => node.textContent.trim())
     .filter(Boolean);
+  const tags = [...new Set([...(meta?.tags || []), ...domTags])];
 
   const rawLang = getEditorLanguage();
   const normalized = normalizeLanguage(rawLang);
@@ -219,17 +399,20 @@ function metadata() {
   const attemptsCount = failAttempts.total + 1;
   const attemptsSummary = formatAttempts();
 
+  const description = meta?.description ||
+    document.querySelector('[data-track-load="description_content"], [class*="question-content"]')?.innerHTML || "";
+
   return {
-    number: rawNumber || "unknown",
-    title: title || match[1],
-    slug: match[1],
+    number: number || "",
+    title,
+    slug,
     url: location.href.split("?")[0].replace(/\/submissions\/.*$/, ""),
     difficulty,
-    tags: [...new Set(tags)],
+    tags,
     language: normalized.name,
     extension: normalized.ext,
     code,
-    description: document.querySelector('[data-track-load="description_content"], [class*="question-content"]')?.innerHTML || "",
+    description,
     acceptedAt: new Date().toISOString(),
     durationSeconds,
     timeSpent,
@@ -364,19 +547,28 @@ function sendSolution(problem, callback) {
   }
 }
 
-function syncIfAccepted() {
+let isSyncing = false;
+
+async function syncIfAccepted() {
   checkSubmissionFailure();
-  if (isPrompting) return;
+  if (isPrompting || isSyncing) return;
   if (!isAccepted()) return;
 
-  const problem = metadata();
-  if (!problem || !problem.code) return;
-
-  const key = `${problem.number}:${problem.language}:${problem.code.length}`;
-  if (key === lastKey) return;
-  lastKey = key;
-
+  isSyncing = true;
   try {
+    const problem = await metadata();
+    if (!problem || !problem.code) {
+      isSyncing = false;
+      return;
+    }
+
+    const key = `${problem.number}:${problem.language}:${problem.code.length}`;
+    if (key === lastKey) {
+      isSyncing = false;
+      return;
+    }
+    lastKey = key;
+
     chrome.storage?.local?.get(["settings"], (res) => {
       const settings = res?.settings || {};
       const isConfigured = Boolean(settings.githubToken && settings.owner && settings.repo);
@@ -385,13 +577,16 @@ function syncIfAccepted() {
       if (!isConfigured) {
         sendSolution(problem);
         showUnconfiguredNotice();
+        isSyncing = false;
         return;
       }
 
       if (shouldPrompt) {
         showNotePrompt(problem, isConfigured);
+        isSyncing = false;
       } else {
         sendSolution(problem, (syncRes) => {
+          isSyncing = false;
           if (syncRes?.syncResult?.synced > 0) {
             showToast(`
               <div class="leetflow-header"><span class="leetflow-title" style="color:#1a7f37;">✅ Synced to GitHub!</span></div>
@@ -401,8 +596,9 @@ function syncIfAccepted() {
         });
       }
     });
-  } catch {
-    sendSolution(problem);
+  } catch (err) {
+    console.error("[LeetFlow] syncIfAccepted error:", err);
+    isSyncing = false;
   }
 }
 
@@ -436,12 +632,16 @@ try {
 }
 
 const observer = new MutationObserver(() => {
+  checkSlugChange();
   checkSubmissionFailure();
   syncIfAccepted();
 });
 observer.observe(document.documentElement, { childList: true, subtree: true });
 
+checkSlugChange();
+
 setTimeout(() => {
   setupTimerBadge();
+  checkSlugChange();
   syncIfAccepted();
 }, 1500);

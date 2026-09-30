@@ -70,11 +70,12 @@ function escapeCell(value) {
 }
 
 export function problemFolder(problem) {
-  const num = /^\d+$/.test(String(problem.number))
-    ? String(problem.number).padStart(4, "0")
-    : String(problem.number || "0000");
+  const raw = String(problem.number || "").trim();
+  const num = /^\d+$/.test(raw)
+    ? raw.padStart(4, "0")
+    : "0000";
   const slug = slugify(problem.slug || problem.title);
-  return `${num}-${slug}`;
+  return num !== "0000" ? `${num}-${slug}` : slug;
 }
 
 export function problemPath(problem, settings) {
@@ -95,7 +96,9 @@ export function renderProblemReadme(problem, settings) {
     ? `> 💡 **Aha! Moment / Key Insight**:\n> ${problem.notes.replace(/\n/g, "\n> ")}`
     : `_Add your notes here._`;
 
-  return `# [${problem.number}. ${cleanTitle}](${problem.url})
+  const numPrefix = /^\d+$/.test(String(problem.number)) ? `${problem.number}. ` : "";
+
+  return `# [${numPrefix}${cleanTitle}](${problem.url})
 
 > ${badgeLine}
 
@@ -137,20 +140,22 @@ export function renderRootReadme(problems, settings) {
     }
   }
   const tags = [...groups.values()].sort((a, b) => a.name.localeCompare(b.name));
-  const rows = [...problems].sort((a, b) => Number(a.number) - Number(b.number))
+  const rows = [...problems].sort((a, b) => Number(a.number || 0) - Number(b.number || 0))
     .map((p) => {
       const folder = problemFolder(p);
       const cleanTitle = String(p.title || "").replace(/^\d+\.\s*/, "").trim();
-      return `| ${p.number} | [${cleanTitle}](./${folder}/README.md) | ${badge(p.difficulty)} | ${escapeCell(p.language)} |`;
+      const numDisplay = /^\d+$/.test(String(p.number)) ? p.number : "-";
+      return `| ${numDisplay} | [${cleanTitle}](./${folder}/README.md) | ${badge(p.difficulty)} | ${escapeCell(p.language)} |`;
     })
     .join("\n");
 
   const tagSections = tags.map((group) => {
-    const items = group.problems.sort((a, b) => Number(a.number) - Number(b.number))
+    const items = group.problems.sort((a, b) => Number(a.number || 0) - Number(b.number || 0))
       .map((p) => {
         const folder = problemFolder(p);
         const cleanTitle = String(p.title || "").replace(/^\d+\.\s*/, "").trim();
-        return `| [${p.number}. ${cleanTitle}](./${folder}/README.md) | ${badge(p.difficulty)} |`;
+        const numPrefix = /^\d+$/.test(String(p.number)) ? `${p.number}. ` : "";
+        return `| [${numPrefix}${cleanTitle}](./${folder}/README.md) | ${badge(p.difficulty)} |`;
       })
       .join("\n");
     return `<a id="tag-${slugify(group.name)}"></a>

@@ -36,7 +36,58 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 chrome.runtime.onStartup.addListener(processQueue);
 chrome.runtime.onInstalled.addListener(processQueue);
 
+async function resolveProblemMetadata(problem) {
+  if (problem?.number && problem.number !== "unknown" && /^\d+$/.test(String(problem.number))) {
+    return problem;
+  }
+  if (!problem?.slug) return problem;
+
+  try {
+    const isCn = problem.url?.includes("leetcode.cn");
+    const endpoint = isCn ? "https://leetcode.cn/graphql" : "https://leetcode.com/graphql";
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query: `
+          query questionData($titleSlug: String!) {
+            question(titleSlug: $titleSlug) {
+              questionFrontendId
+              title
+              difficulty
+              topicTags {
+                name
+              }
+            }
+          }
+        `,
+        variables: { titleSlug: problem.slug }
+      })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const q = data?.data?.question;
+      if (q?.questionFrontendId) {
+        problem.number = String(parseInt(q.questionFrontendId, 10));
+        if (q.title && (!problem.title || problem.title === problem.slug)) {
+          problem.title = q.title;
+        }
+        if (q.difficulty && (!problem.difficulty || problem.difficulty === "Unknown")) {
+          problem.difficulty = q.difficulty;
+        }
+        if (q.topicTags?.length && (!problem.tags || problem.tags.length === 0)) {
+          problem.tags = q.topicTags.map((t) => t.name);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("[LeetFlow] Background failed to resolve problem metadata:", err);
+  }
+  return problem;
+}
+
 async function enqueue(problem) {
+  problem = await resolveProblemMetadata(problem);
   const state = await loadState();
   const key = `${problem.number}:${problem.language}`;
   const configured = Boolean(state.settings.githubToken && state.settings.owner && state.settings.repo);
@@ -70,6 +121,10 @@ async function processQueue() {
   const result = { synced: 0, failed: 0, errors: [] };
   for (const job of state.queue) {
     if (job.status === "done") continue;
+    if (!job.problem.number || job.problem.number === "unknown" || !/^\d+$/.test(String(job.problem.number))) {
+      job.problem = await resolveProblemMetadata(job.problem);
+      job.key = `${job.problem.number}:${job.problem.language}`;
+    }
     try {
       await syncJob(job, state);
       job.status = "done";
@@ -90,6 +145,10 @@ async function processQueue() {
 }
 
 async function syncJob(job, state) {
+  if (!job.problem.number || job.problem.number === "unknown" || !/^\d+$/.test(String(job.problem.number))) {
+    job.problem = await resolveProblemMetadata(job.problem);
+    job.key = `${job.problem.number}:${job.problem.language}`;
+  }
   const settings = state.settings;
   const token = settings.githubToken;
   if (!token || !settings.owner || !settings.repo) {
@@ -98,6 +157,7 @@ async function syncJob(job, state) {
   const base = problemPath(job.problem, settings);
   const ext = job.problem.extension || "txt";
   const solutionFileName = `${slugify(job.problem.slug || job.problem.title)}.${ext}`;
+  const numPrefix = /^\d+$/.test(String(job.problem.number)) ? `${job.problem.number}. ` : "";
 
   console.log(`[LeetFlow] Syncing problem #${job.problem.number} to ${settings.owner}/${settings.repo}`);
 
@@ -106,18 +166,19 @@ async function syncJob(job, state) {
     token,
     path: `${base}/${solutionFileName}`,
     content: job.problem.code,
-    message: `sync: ${job.problem.number}. ${job.problem.title}`
+    message: `sync: ${numPrefix}${job.problem.title}`
   });
   await putFile({
     ...settings,
     token,
     path: `${base}/README.md`,
     content: renderProblemReadme(job.problem, settings),
-    message: `docs: add README for ${job.problem.number}. ${job.problem.title}`
+    message: `docs: add README for ${numPrefix}${job.problem.title}`
   });
   if (settings.updateRootReadme) {
     const problems = Object.values(state.syncedProblems || {});
-    const merged = [...problems.filter((p) => p.number !== job.problem.number), job.problem];
+    const cleanOld = problems.filter((p) => p.number !== "unknown" && p.slug !== job.problem.slug);
+    const merged = [...cleanOld, job.problem];
     state.syncedProblems = Object.fromEntries(merged.map((p) => [`${p.number}:${p.language}`, p]));
     state.reviews[job.key] = ensureReview(job.problem);
     const rootPath = settings.rootDir ? `${settings.rootDir.replace(/\/+$/, "")}/README.md` : "README.md";

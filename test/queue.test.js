@@ -114,6 +114,25 @@ test("a changed solution is re-committed and the root index stays intact", async
   assert.match(root, /Two Sum/);
 });
 
+test("filling in complexity after a sync updates the stored problem", async () => {
+  const { git } = setup();
+
+  await enqueue(solution());
+  const response = await enqueue(solution({ timeComplexity: "O(N)", spaceComplexity: "O(1)" }));
+
+  assert.equal(response.status, "queued-update");
+
+  const readme = git.read("LeetCode/0001-two-sum/README.md");
+  assert.match(readme, /\| Time Complexity \| `O\(N\)` \|/);
+  assert.match(readme, /\| Space Complexity \| `O\(1\)` \|/);
+
+  const state = await loadState();
+  assert.equal(state.problems["1:Python3"].timeComplexity, "O(N)");
+
+  const unchanged = await enqueue(solution({ timeComplexity: "O(N)", spaceComplexity: "O(1)" }));
+  assert.equal(unchanged.status, "unchanged");
+});
+
 test("concurrent enqueues are serialized into a single commit without losing problems", async () => {
   const { router, git } = setup();
 

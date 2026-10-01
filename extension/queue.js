@@ -125,7 +125,9 @@ function sameSolution(existing, incoming) {
   return (
     Boolean(existing?.syncedAt) &&
     existing.code === incoming.code &&
-    (existing.notes || "") === (incoming.notes || "")
+    (existing.notes || "") === (incoming.notes || "") &&
+    (existing.timeComplexity || "") === (incoming.timeComplexity || "") &&
+    (existing.spaceComplexity || "") === (incoming.spaceComplexity || "")
   );
 }
 

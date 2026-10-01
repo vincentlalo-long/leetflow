@@ -464,6 +464,34 @@ function showNotePrompt(problem) {
     </div>
     <div class="leetflow-body">
       <textarea id="leetflow-note-input" placeholder="Aha! moment, key trick, or mistake to remember..."></textarea>
+      <div class="leetflow-complexity">
+        <label class="leetflow-cx-field">
+          <span>Time</span>
+          <input id="leetflow-time-input" type="text" list="leetflow-cx-list" placeholder="O(N)" autocomplete="off">
+        </label>
+        <label class="leetflow-cx-field">
+          <span>Space</span>
+          <input id="leetflow-space-input" type="text" list="leetflow-cx-list" placeholder="O(1)" autocomplete="off">
+        </label>
+      </div>
+      <div class="leetflow-cx-chips">
+        <button type="button" data-cx="O(1)">O(1)</button>
+        <button type="button" data-cx="O(log N)">O(log N)</button>
+        <button type="button" data-cx="O(N)">O(N)</button>
+        <button type="button" data-cx="O(N log N)">O(N log N)</button>
+        <button type="button" data-cx="O(N^2)">O(N²)</button>
+        <button type="button" data-cx="O(2^N)">O(2^N)</button>
+      </div>
+      <datalist id="leetflow-cx-list">
+        <option value="O(1)"></option>
+        <option value="O(log N)"></option>
+        <option value="O(N)"></option>
+        <option value="O(N log N)"></option>
+        <option value="O(N^2)"></option>
+        <option value="O(N^3)"></option>
+        <option value="O(2^N)"></option>
+        <option value="O(N!)"></option>
+      </datalist>
     </div>
     <div class="leetflow-footer">
       <button class="leetflow-btn-secondary" id="leetflow-skip-btn">Skip Note & Sync</button>
@@ -472,10 +500,29 @@ function showNotePrompt(problem) {
   `);
 
   const textarea = toast.querySelector("#leetflow-note-input");
+  const timeInput = toast.querySelector("#leetflow-time-input");
+  const spaceInput = toast.querySelector("#leetflow-space-input");
+  let activeComplexityField = timeInput;
   textarea.focus();
+
+  [timeInput, spaceInput].forEach((input) =>
+    input?.addEventListener("focus", () => {
+      activeComplexityField = input;
+    })
+  );
+
+  toast.querySelectorAll(".leetflow-cx-chips button").forEach((chip) => {
+    chip.addEventListener("click", () => {
+      if (!activeComplexityField) return;
+      activeComplexityField.value = chip.dataset.cx || "";
+      activeComplexityField.focus();
+    });
+  });
 
   const handleSync = (note) => {
     problem.notes = (note || "").trim();
+    problem.timeComplexity = (timeInput?.value || "").trim();
+    problem.spaceComplexity = (spaceInput?.value || "").trim();
     toast.innerHTML = `<div class="leetflow-header"><span class="leetflow-title">🚀 Syncing to GitHub...</span></div>`;
     sendSolution(problem).then(showSyncResult);
   };
@@ -484,7 +531,7 @@ function showNotePrompt(problem) {
   toast.querySelector("#leetflow-sync-btn")?.addEventListener("click", () => handleSync(textarea.value));
   toast.querySelector("#leetflow-skip-btn")?.addEventListener("click", () => handleSync(""));
 
-  textarea.addEventListener("keydown", (event) => {
+  toast.addEventListener("keydown", (event) => {
     if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
       handleSync(textarea.value);
     }

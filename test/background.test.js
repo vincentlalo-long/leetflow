@@ -2,8 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { configureRepository, installChromeMock } from "./helpers/mock.js";
 
-const { listeners, store } = installChromeMock(configureRepository());
-await import("../extension/background.js");
+const { listeners, store, alarms, badge } = installChromeMock(configureRepository());
+const background = await import("../extension/background.js");
+const { refreshBadge, REVIEW_ALARM } = background;
 
 function dispatch(message) {
   return new Promise((resolve) => {
@@ -117,4 +118,43 @@ test("retry-queue reports the drain result", async () => {
 test("unknown message types are rejected", async () => {
   const response = await dispatch({ type: "does-not-exist" });
   assert.equal(response.ok, false);
+});
+
+test("the action badge shows how many reviews are due", async () => {
+  store.problems = {
+    "7:cpp": {
+      number: "7",
+      title: "Reverse Integer",
+      language: "cpp",
+      code: "x",
+      review: { due: "2020-01-01", stability: 1, reviews: 0, lastGrade: "" }
+    },
+    "8:cpp": {
+      number: "8",
+      title: "String to Integer (atoi)",
+      language: "cpp",
+      code: "y",
+      review: { due: "2020-01-02", stability: 1, reviews: 0, lastGrade: "" }
+    }
+  };
+
+  await refreshBadge();
+  assert.equal(badge.text, "2");
+  assert.equal(badge.color, "#cf222e");
+
+  await dispatch({ type: "skip-review", key: "7:cpp" });
+  await dispatch({ type: "skip-review", key: "8:cpp" });
+  await refreshBadge();
+  assert.equal(badge.text, "", "no due reviews means no badge");
+
+  delete store.problems["7:cpp"];
+  delete store.problems["8:cpp"];
+});
+
+test("the hourly badge alarm is scheduled on install", () => {
+  alarms.length = 0;
+  listeners.installed();
+  const scheduled = alarms.find((alarm) => alarm.name === REVIEW_ALARM);
+  assert.ok(scheduled, "expected the review badge alarm");
+  assert.equal(scheduled.options.periodInMinutes, 60);
 });

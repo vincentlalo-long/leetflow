@@ -192,7 +192,13 @@ function exportToAnki(problems) {
     const notesHtml = problem.notes
       ? `<div style="background:#eef;padding:8px;border-radius:4px;"><b>Insight / Notes:</b><br>${escapeHtml(problem.notes).replace(/\n/g, "<br>")}</div>`
       : "";
-    const back = `${notesHtml}<h3>Solution (${escapeHtml(problem.language)})</h3><pre style="background:#f4f4f4;padding:8px;border-radius:4px;overflow-x:auto;"><code>${escapeHtml(problem.code || "No code")}</code></pre><p><small>Time spent: ${escapeHtml(problem.timeSpent || "N/A")} · Attempts: ${escapeHtml(problem.attemptsSummary || "Clean AC")}</small></p>`;
+    const complexityParts = [];
+    if (problem.timeComplexity) complexityParts.push(`<b>Time:</b> ${escapeHtml(problem.timeComplexity)}`);
+    if (problem.spaceComplexity) complexityParts.push(`<b>Space:</b> ${escapeHtml(problem.spaceComplexity)}`);
+    const complexityHtml = complexityParts.length
+      ? `<div style="background:#eaf6ea;padding:8px;border-radius:4px;margin-bottom:8px;"><b>Complexity:</b> ${complexityParts.join(" · ")}</div>`
+      : "";
+    const back = `${complexityHtml}${notesHtml}<h3>Solution (${escapeHtml(problem.language)})</h3><pre style="background:#f4f4f4;padding:8px;border-radius:4px;overflow-x:auto;"><code>${escapeHtml(problem.code || "No code")}</code></pre><p><small>Time spent: ${escapeHtml(problem.timeSpent || "N/A")} · Attempts: ${escapeHtml(problem.attemptsSummary || "Clean AC")}</small></p>`;
     return `${front.replace(/\t/g, " ").replace(/\r?\n/g, "")}\t${back.replace(/\t/g, " ").replace(/\r?\n/g, "")}`;
   });
 

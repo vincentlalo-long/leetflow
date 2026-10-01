@@ -98,6 +98,13 @@ export function renderProblemReadme(problem, settings) {
 
   const numPrefix = /^\d+$/.test(String(problem.number)) ? `${problem.number}. ` : "";
 
+  const complexityRows = [
+    problem.timeComplexity ? `| Time Complexity | \`${escapeCell(problem.timeComplexity)}\` |` : "",
+    problem.spaceComplexity ? `| Space Complexity | \`${escapeCell(problem.spaceComplexity)}\` |` : ""
+  ]
+    .filter(Boolean)
+    .join("\n");
+
   return `# [${numPrefix}${cleanTitle}](${problem.url})
 
 > ${badgeLine}
@@ -107,7 +114,7 @@ export function renderProblemReadme(problem, settings) {
 | Difficulty | ${escapeCell(problem.difficulty)} |
 | Topics | ${tags} |
 | Language | ${escapeCell(problem.language)} |
-| Status | Accepted |
+${complexityRows ? `${complexityRows}\n` : ""}| Status | Accepted |
 | Time Spent | ${escapeCell(problem.timeSpent || "N/A")} |
 | Attempts | ${escapeCell(problem.attemptsSummary || "1 (Clean AC)")} |
 | Synced | ${escapeCell(problem.acceptedAt)} |

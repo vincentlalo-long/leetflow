@@ -87,6 +87,23 @@ test("problemPath and renderProblemReadme produce the generated layout", () => {
   assert.match(readme, /Array/);
 });
 
+test("problem README renders complexity only when it was recorded", () => {
+  const without = renderProblemReadme(twoSum(), settings);
+  assert.doesNotMatch(without, /Time Complexity/);
+  assert.doesNotMatch(without, /Space Complexity/);
+
+  const readme = renderProblemReadme(
+    { ...twoSum(), timeComplexity: "O(N log N)", spaceComplexity: "O(N)" },
+    settings
+  );
+  assert.match(readme, /\| Time Complexity \| `O\(N log N\)` \|/);
+  assert.match(readme, /\| Space Complexity \| `O\(N\)` \|/);
+  assert.ok(
+    readme.indexOf("| Time Complexity") < readme.indexOf("| Status |"),
+    "complexity sits with the other properties"
+  );
+});
+
 test("normalizeLanguage keeps a single shared mapping", () => {
   assert.deepEqual(normalizeLanguage("python3"), { name: "Python3", ext: "py" });
   assert.deepEqual(normalizeLanguage("C++"), { name: "C++", ext: "cpp" });

@@ -90,6 +90,66 @@
   box-shadow: 0 0 0 2px rgba(9, 105, 218, 0.2);
 }
 
+.leetflow-complexity {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.leetflow-cx-field {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #57606a;
+  font-weight: 600;
+}
+
+.leetflow-cx-field span {
+  min-width: 42px;
+}
+
+.leetflow-cx-field input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+  background: #f6f8fa;
+  color: #1f2328;
+}
+
+.leetflow-cx-field input:focus {
+  background: #ffffff;
+  border-color: #0969da;
+  box-shadow: 0 0 0 2px rgba(9, 105, 218, 0.2);
+}
+
+.leetflow-cx-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.leetflow-cx-chips button {
+  border: 1px solid #d0d7de;
+  background: #ffffff;
+  color: #24292f;
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.leetflow-cx-chips button:hover {
+  background: #eaeef2;
+}
+
 .leetflow-footer {
   display: flex;
   justify-content: flex-end;

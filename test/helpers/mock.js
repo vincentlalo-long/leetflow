@@ -68,6 +68,7 @@ export function installChromeMock(initialStore = {}) {
   const store = { ...initialStore };
   const listeners = {};
   const alarms = [];
+  const badge = { text: "", color: null };
 
   const chrome = {
     runtime: {
@@ -101,6 +102,16 @@ export function installChromeMock(initialStore = {}) {
         }
       }
     },
+    action: {
+      setBadgeText: ({ text }) => {
+        badge.text = String(text ?? "");
+        return Promise.resolve();
+      },
+      setBadgeBackgroundColor: ({ color }) => {
+        badge.color = color;
+        return Promise.resolve();
+      }
+    },
     alarms: {
       create: (name, options) => alarms.push({ name, options }),
       onAlarm: { addListener: (fn) => (listeners.alarm = fn) }
@@ -108,7 +119,7 @@ export function installChromeMock(initialStore = {}) {
   };
 
   globalThis.chrome = chrome;
-  return { store, listeners, alarms, chrome };
+  return { store, listeners, alarms, badge, chrome };
 }
 
 export function configureRepository(settings = {}) {

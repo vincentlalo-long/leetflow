@@ -1,12 +1,42 @@
 import { loadState, saveState } from "./storage.js";
 import { checkRepository } from "./github.js";
 
-const fields = ["githubToken", "owner", "repo", "branch", "rootDir", "autoSync", "updateRootReadme", "interviewMode", "promptNotes"];
+const fields = [
+  "githubToken",
+  "owner",
+  "repo",
+  "branch",
+  "rootDir",
+  "autoSync",
+  "updateRootReadme",
+  "interviewMode",
+  "promptNotes"
+];
 const $ = (id) => document.getElementById(id);
+
+function setMessage(text, kind) {
+  const node = $("message");
+  node.textContent = text;
+  node.style.color = kind === "error" ? "#cf222e" : kind === "warn" ? "#9a6700" : "#1a7f37";
+}
+
+function send(type, payload = {}) {
+  return new Promise((resolve) => {
+    try {
+      chrome.runtime.sendMessage({ type, ...payload }, (response) => {
+        const failure = chrome.runtime.lastError;
+        if (failure) resolve({ ok: false, error: failure.message || String(failure) });
+        else resolve(response || { ok: false, error: "No response from the background." });
+      });
+    } catch (error) {
+      resolve({ ok: false, error: error?.message || String(error) });
+    }
+  });
+}
 
 async function load() {
   const state = await loadState();
-  const settings = state?.settings || {};
+  const settings = state.settings || {};
   for (const field of fields) {
     const node = $(field);
     if (!node) continue;
@@ -22,28 +52,44 @@ async function save() {
     if (!node) continue;
     settings[field] = node.type === "checkbox" ? node.checked : node.value.trim();
   }
-  if (settings.githubToken && settings.owner && settings.repo) {
-    await checkRepository(settings.githubToken, settings.owner, settings.repo);
-  }
+
   const state = await loadState();
-  await saveState({ ...(state || {}), settings });
-  $("message").style.color = "#1a7f37";
-  $("message").textContent = "Saved and verified.";
+  await saveState({ ...state, settings });
+  setMessage("Settings saved.", "ok");
+
+  if (!(settings.githubToken && settings.owner && settings.repo)) {
+    return;
+  }
 
   try {
-    const queueRes = await new Promise((resolve) =>
-      chrome.runtime.sendMessage({ type: "retry-queue" }, resolve)
-    );
-    if (queueRes?.synced > 0) {
-      $("message").textContent = `Saved and verified! Synced ${queueRes.synced} pending solution(s) to GitHub.`;
-    }
-  } catch {
-    // Handled
+    await checkRepository(settings.githubToken, settings.owner, settings.repo);
+  } catch (error) {
+    setMessage(`Saved, but the repository check failed: ${error.message}`, "warn");
+    return;
   }
+
+  const queue = await send("retry-queue");
+  if (!queue?.ok) {
+    setMessage(`Saved, but sync failed: ${queue?.error || "unknown error"}`, "error");
+    return;
+  }
+  if (queue.rateLimited) {
+    setMessage("Saved and verified. GitHub rate limit reached; the queue will retry automatically.", "warn");
+    return;
+  }
+  if (queue.synced > 0) {
+    setMessage(`Saved and verified. Synced ${queue.synced} pending solution(s).`, "ok");
+    return;
+  }
+  if (queue.failed > 0) {
+    setMessage(`Saved and verified. ${queue.failed} job(s) failed: ${queue.errors?.[0] || ""}`, "error");
+    return;
+  }
+  setMessage("Saved, verified, and the queue is up to date.", "ok");
 }
 
-$("save").addEventListener("click", () => save().catch((error) => {
-  $("message").textContent = error.message;
-  $("message").style.color = "#cf222e";
-}));
-load();
+$("save").addEventListener("click", () =>
+  save().catch((error) => setMessage(error.message || String(error), "error"))
+);
+
+load().catch((error) => setMessage(error.message || String(error), "error"));

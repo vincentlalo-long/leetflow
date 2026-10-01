@@ -1,14 +1,13 @@
 {
   "manifest_version": 3,
   "name": "LeetFlow Sync",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "description": "Sync accepted LeetCode solutions to a GitHub repository and keep a review-friendly archive.",
-  "permissions": ["storage", "tabs", "notifications"],
+  "permissions": ["storage", "alarms"],
   "host_permissions": [
     "https://leetcode.com/*",
     "https://leetcode.cn/*",
-    "https://api.github.com/*",
-    "https://github.com/*"
+    "https://api.github.com/*"
   ],
   "background": {
     "service_worker": "background.js",
@@ -18,7 +17,10 @@
     "default_title": "LeetFlow Sync",
     "default_popup": "popup.html"
   },
-  "options_page": "options.html",
+  "options_ui": {
+    "page": "options.html",
+    "open_in_tab": true
+  },
   "content_scripts": [
     {
       "matches": ["https://leetcode.com/problems/*", "https://leetcode.cn/problems/*"],

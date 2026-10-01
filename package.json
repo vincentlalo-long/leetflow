@@ -1,0 +1,17 @@
+{
+  "name": "leetflow",
+  "version": "0.7.0",
+  "private": true,
+  "type": "module",
+  "description": "Browser extension that syncs accepted LeetCode solutions to a GitHub repository.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test test/*.test.js",
+    "check": "node build.mjs && node --test test/*.test.js",
+    "lint": "npm run build && npx --yes web-ext lint --source-dir dist/firefox"
+  }
+}

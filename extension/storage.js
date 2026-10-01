@@ -1,78 +1,144 @@
+export const DEFAULT_SETTINGS = {
+  githubToken: "",
+  owner: "",
+  repo: "",
+  branch: "main",
+  rootDir: "LeetCode",
+  autoSync: true,
+  updateRootReadme: true,
+  interviewMode: false,
+  promptNotes: true
+};
+
 export const DEFAULTS = {
-  settings: {
-    githubToken: "",
-    owner: "",
-    repo: "",
-    branch: "main",
-    rootDir: "LeetCode",
-    autoSync: true,
-    updateRootReadme: true,
-    interviewMode: false,
-    promptNotes: true
-  },
+  settings: DEFAULT_SETTINGS,
   queue: [],
+  problems: {},
+  lastSync: null,
+  lastError: "",
   synced: {},
   syncedProblems: {},
   reviews: {}
 };
 
-function storageGet(keys) {
-  if (typeof browser !== "undefined" && browser?.storage?.local?.get) {
-    return browser.storage.local.get(keys);
+function extensionApi() {
+  if (globalThis.browser?.storage?.local) return globalThis.browser;
+  return globalThis.chrome;
+}
+
+function normalizeError(error) {
+  if (error instanceof Error) return error;
+  if (error?.message) return new Error(error.message);
+  return new Error(String(error));
+}
+
+function promisifyStorage(method, argument) {
+  const api = extensionApi();
+  const storage = api?.storage?.local;
+  if (!storage || typeof storage[method] !== "function") {
+    return Promise.reject(new Error("Extension storage is unavailable."));
   }
+
+  const promiseStyle = Boolean(globalThis.browser?.storage?.local);
+
   return new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (value, error) => {
+      if (settled) return;
+      settled = true;
+      if (error) reject(normalizeError(error));
+      else resolve(value);
+    };
+
+    let returned;
     try {
-      chrome.storage.local.get(keys, (result) => {
-        if (chrome.runtime?.lastError) {
-          reject(chrome.runtime.lastError);
-        } else {
-          resolve(result || {});
-        }
-      });
-    } catch (err) {
-      reject(err);
+      if (promiseStyle) {
+        returned = storage[method](argument);
+      } else {
+        returned = storage[method](argument, (value) => {
+          const failure = api.runtime?.lastError;
+          finish(value, failure ? normalizeError(failure) : null);
+        });
+      }
+    } catch (error) {
+      finish(undefined, error);
+      return;
+    }
+
+    if (returned && typeof returned.then === "function") {
+      returned.then((value) => finish(value), (error) => finish(undefined, error));
+    } else if (promiseStyle) {
+      finish(returned, null);
     }
   });
 }
 
-function storageSet(items) {
-  if (typeof browser !== "undefined" && browser?.storage?.local?.set) {
-    return browser.storage.local.set(items);
+function hasEntries(value) {
+  return Boolean(value) && typeof value === "object" && Object.keys(value).length > 0;
+}
+
+function readLegacyKeys(raw) {
+  return hasEntries(raw?.synced) || hasEntries(raw?.syncedProblems) || hasEntries(raw?.reviews);
+}
+
+export function migrateLegacyState(raw) {
+  if (!readLegacyKeys(raw)) return null;
+  const problems = { ...(raw.problems || {}) };
+
+  for (const [key, value] of Object.entries(raw.syncedProblems || {})) {
+    if (!value || typeof value !== "object") continue;
+    problems[key] = {
+      ...value,
+      ...(problems[key] || {}),
+      syncedAt: value.syncedAt || raw.synced?.[key] || value.acceptedAt || ""
+    };
   }
-  return new Promise((resolve, reject) => {
-    try {
-      chrome.storage.local.set(items, () => {
-        if (chrome.runtime?.lastError) {
-          reject(chrome.runtime.lastError);
-        } else {
-          resolve();
-        }
-      });
-    } catch (err) {
-      reject(err);
+
+  for (const [key, acceptedAt] of Object.entries(raw.synced || {})) {
+    if (problems[key]) {
+      problems[key].syncedAt = problems[key].syncedAt || acceptedAt || "";
+      continue;
     }
-  });
+    const [number = "", language = ""] = String(key).split(":");
+    problems[key] = { number, language, syncedAt: acceptedAt || "" };
+  }
+
+  for (const [key, value] of Object.entries(raw.reviews || {})) {
+    if (!value || typeof value !== "object") continue;
+    const existing = problems[key] || {};
+    problems[key] = { ...existing, ...value, review: value.review || existing.review };
+  }
+
+  return problems;
 }
 
 export async function loadState() {
-  const rawState = await storageGet(DEFAULTS);
-  const state = rawState || {};
+  const raw = (await promisifyStorage("get", DEFAULTS)) || {};
+  const legacyProblems = migrateLegacyState(raw);
+  const problems = legacyProblems || raw.problems || {};
+
   return {
-    settings: { ...DEFAULTS.settings, ...(state.settings || {}) },
-    queue: Array.isArray(state.queue) ? state.queue : [],
-    synced: state.synced || {},
-    syncedProblems: state.syncedProblems || {},
-    reviews: state.reviews || {}
+    settings: { ...DEFAULT_SETTINGS, ...(raw.settings || {}) },
+    queue: Array.isArray(raw.queue) ? raw.queue : [],
+    problems,
+    lastSync: raw.lastSync || null,
+    lastError: typeof raw.lastError === "string" ? raw.lastError : "",
+    migrated: Boolean(legacyProblems)
   };
 }
 
 export async function saveState(state) {
-  const safeState = state || {};
-  await storageSet({
-    settings: safeState.settings || DEFAULTS.settings,
-    queue: Array.isArray(safeState.queue) ? safeState.queue : [],
-    synced: safeState.synced || {},
-    syncedProblems: safeState.syncedProblems || {},
-    reviews: safeState.reviews || {}
-  });
+  const safe = state || {};
+  const payload = {
+    settings: { ...DEFAULT_SETTINGS, ...(safe.settings || {}) },
+    queue: Array.isArray(safe.queue) ? safe.queue : [],
+    problems: safe.problems && typeof safe.problems === "object" ? safe.problems : {},
+    lastSync: safe.lastSync || null,
+    lastError: typeof safe.lastError === "string" ? safe.lastError : "",
+    synced: {},
+    syncedProblems: {},
+    reviews: {}
+  };
+  await promisifyStorage("set", payload);
+  return payload;
 }

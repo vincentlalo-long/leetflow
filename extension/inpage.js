@@ -1,4 +1,7 @@
 (function () {
+  if (window.__leetflowInpage) return;
+  window.__leetflowInpage = true;
+
   function getMonacoData() {
     try {
       if (window.monaco?.editor) {
@@ -22,13 +25,19 @@
     return null;
   }
 
+  let lastCode = "";
+  let lastLang = "";
+
   function syncToDOM() {
     const data = getMonacoData();
-    if (data && data.code) {
+    if (!data || !data.code) return;
+    if (data.code !== lastCode) {
+      lastCode = data.code;
       document.documentElement.dataset.leetflowCode = data.code;
-      if (data.lang) {
-        document.documentElement.dataset.leetflowLang = data.lang;
-      }
+    }
+    if (data.lang && data.lang !== lastLang) {
+      lastLang = data.lang;
+      document.documentElement.dataset.leetflowLang = data.lang;
     }
   }
 
@@ -38,7 +47,8 @@
     window.dispatchEvent(new CustomEvent("leetflow:response-editor", { detail: data }));
   });
 
-  // Sync periodically while coding
   setInterval(syncToDOM, 1000);
   syncToDOM();
+
+  document.documentElement.dataset.leetflowInpage = "1";
 })();

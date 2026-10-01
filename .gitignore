@@ -2,6 +2,7 @@
 node_modules/
 dist/
 *.zip
+*.xpi
 
 # Local browser exports and test artifacts
 .extension-state/

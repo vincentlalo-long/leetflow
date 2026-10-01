@@ -6,6 +6,7 @@ let isPrompting = false;
 
 function injectInpageScript() {
   if (document.getElementById("leetflow-inpage-script")) return;
+  if (document.documentElement.dataset.leetflowInpage === "1") return;
   try {
     const script = document.createElement("script");
     script.id = "leetflow-inpage-script";
@@ -15,58 +16,8 @@ function injectInpageScript() {
     // Handled if blocked or already injected
   }
 }
-injectInpageScript();
 
-function normalizeLanguage(raw) {
-  if (!raw) return { name: "Unknown", ext: "txt" };
-  const clean = String(raw).trim().toLowerCase();
-
-  const map = {
-    "c++": { name: "C++", ext: "cpp" },
-    cpp: { name: "C++", ext: "cpp" },
-    c: { name: "C", ext: "c" },
-    java: { name: "Java", ext: "java" },
-    python: { name: "Python", ext: "py" },
-    python3: { name: "Python3", ext: "py" },
-    py: { name: "Python3", ext: "py" },
-    csharp: { name: "C#", ext: "cs" },
-    "c#": { name: "C#", ext: "cs" },
-    cs: { name: "C#", ext: "cs" },
-    javascript: { name: "JavaScript", ext: "js" },
-    js: { name: "JavaScript", ext: "js" },
-    typescript: { name: "TypeScript", ext: "ts" },
-    ts: { name: "TypeScript", ext: "ts" },
-    golang: { name: "Go", ext: "go" },
-    go: { name: "Go", ext: "go" },
-    rust: { name: "Rust", ext: "rs" },
-    rs: { name: "Rust", ext: "rs" },
-    swift: { name: "Swift", ext: "swift" },
-    kotlin: { name: "Kotlin", ext: "kt" },
-    kt: { name: "Kotlin", ext: "kt" },
-    ruby: { name: "Ruby", ext: "rb" },
-    rb: { name: "Ruby", ext: "rb" },
-    scala: { name: "Scala", ext: "scala" },
-    php: { name: "PHP", ext: "php" },
-    dart: { name: "Dart", ext: "dart" },
-    elixir: { name: "Elixir", ext: "ex" },
-    erlang: { name: "Erlang", ext: "erl" },
-    racket: { name: "Racket", ext: "rkt" },
-    mysql: { name: "MySQL", ext: "sql" },
-    sql: { name: "SQL", ext: "sql" },
-    "ms sql server": { name: "MS SQL Server", ext: "sql" },
-    oracle: { name: "Oracle", ext: "sql" },
-    postgresql: { name: "PostgreSQL", ext: "sql" },
-    bash: { name: "Bash", ext: "sh" }
-  };
-
-  if (map[clean]) return map[clean];
-
-  for (const [key, val] of Object.entries(map)) {
-    if (clean.includes(key)) return val;
-  }
-
-  return { name: raw, ext: "txt" };
-}
+setTimeout(injectInpageScript, 2000);
 
 function text(selector) {
   return document.querySelector(selector)?.textContent?.trim() || "";
@@ -391,7 +342,6 @@ async function metadata() {
   const tags = [...new Set([...(meta?.tags || []), ...domTags])];
 
   const rawLang = getEditorLanguage();
-  const normalized = normalizeLanguage(rawLang);
   const code = getEditorCode();
 
   const durationSeconds = Math.round((Date.now() - sessionStartTime) / 1000);
@@ -409,8 +359,7 @@ async function metadata() {
     url: location.href.split("?")[0].replace(/\/submissions\/.*$/, ""),
     difficulty,
     tags,
-    language: normalized.name,
-    extension: normalized.ext,
+    language: rawLang || "unknown",
     code,
     description,
     acceptedAt: new Date().toISOString(),
@@ -420,6 +369,42 @@ async function metadata() {
     attemptsSummary,
     notes: ""
   };
+}
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;"
+  })[character]);
+}
+
+function hashString(value) {
+  let hash = 5381;
+  const text = String(value || "");
+  for (let index = 0; index < text.length; index++) {
+    hash = ((hash << 5) + hash + text.charCodeAt(index)) | 0;
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function storageGet(keys) {
+  const promiseStyle = Boolean(globalThis.browser?.storage?.local);
+  const api = promiseStyle ? globalThis.browser : chrome;
+
+  if (promiseStyle) {
+    return api.storage.local.get(keys).catch(() => ({}));
+  }
+
+  return new Promise((resolve) => {
+    try {
+      api.storage.local.get(keys, (result) => resolve(result || {}));
+    } catch {
+      resolve({});
+    }
+  });
 }
 
 function showToast(contentHtml) {
@@ -465,7 +450,7 @@ function showUnconfiguredNotice() {
   });
 }
 
-function showNotePrompt(problem, isConfigured) {
+function showNotePrompt(problem) {
   isPrompting = true;
 
   const toast = showToast(`
@@ -474,8 +459,8 @@ function showNotePrompt(problem, isConfigured) {
       <button class="leetflow-close-x" id="leetflow-x">✕</button>
     </div>
     <div class="leetflow-metrics">
-      <span>⏱️ ${problem.timeSpent}</span>
-      <span>🎯 ${problem.attemptsSummary}</span>
+      <span>⏱️ ${escapeHtml(problem.timeSpent)}</span>
+      <span>🎯 ${escapeHtml(problem.attemptsSummary)}</span>
     </div>
     <div class="leetflow-body">
       <textarea id="leetflow-note-input" placeholder="Aha! moment, key trick, or mistake to remember..."></textarea>
@@ -492,59 +477,97 @@ function showNotePrompt(problem, isConfigured) {
   const handleSync = (note) => {
     problem.notes = (note || "").trim();
     toast.innerHTML = `<div class="leetflow-header"><span class="leetflow-title">🚀 Syncing to GitHub...</span></div>`;
-
-    sendSolution(problem, (res) => {
-      if (!res?.configured) {
-        showUnconfiguredNotice();
-        return;
-      }
-
-      if (res?.syncResult?.failed > 0) {
-        const errMsg = res.syncResult.errors?.[0] || "Sync failed. Check your settings.";
-        toast.innerHTML = `
-          <div class="leetflow-header"><span class="leetflow-title" style="color:#cf222e;">❌ Sync failed</span><button class="leetflow-close-x" id="leetflow-x">✕</button></div>
-          <p style="margin: 6px 0; font-size: 12px; color: #57606a;">${errMsg}</p>
-          <div class="leetflow-footer">
-            <button class="leetflow-btn-secondary" id="leetflow-dismiss-btn">Dismiss</button>
-            <button class="leetflow-btn-primary" id="leetflow-connect-btn">Settings</button>
-          </div>
-        `;
-        toast.querySelector("#leetflow-x")?.addEventListener("click", closeToast);
-        toast.querySelector("#leetflow-dismiss-btn")?.addEventListener("click", closeToast);
-        toast.querySelector("#leetflow-connect-btn")?.addEventListener("click", () => {
-          chrome.runtime.sendMessage({ type: "open-options" });
-          closeToast();
-        });
-      } else {
-        toast.innerHTML = `
-          <div class="leetflow-header"><span class="leetflow-title" style="color:#1a7f37;">✅ Synced to GitHub!</span></div>
-          <p style="margin: 4px 0; font-size: 12px; color: #57606a;">Saved to your repository archive.</p>
-        `;
-        setTimeout(closeToast, 2500);
-      }
-    });
+    sendSolution(problem).then(showSyncResult);
   };
 
   toast.querySelector("#leetflow-x")?.addEventListener("click", closeToast);
   toast.querySelector("#leetflow-sync-btn")?.addEventListener("click", () => handleSync(textarea.value));
   toast.querySelector("#leetflow-skip-btn")?.addEventListener("click", () => handleSync(""));
 
-  textarea.addEventListener("keydown", (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+  textarea.addEventListener("keydown", (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
       handleSync(textarea.value);
     }
   });
 }
 
-function sendSolution(problem, callback) {
-  try {
-    chrome.runtime.sendMessage({ type: "accepted-solution", problem }, (response) => {
-      if (callback) callback(response);
-    });
-  } catch (error) {
-    console.warn("[LeetFlow] Could not send message to extension background:", error);
-    if (callback) callback({ ok: false, error: error.message });
+function showSyncSuccess(message) {
+  showToast(`
+    <div class="leetflow-header"><span class="leetflow-title" style="color:#1a7f37;">✅ ${escapeHtml(message)}</span></div>
+  `);
+  setTimeout(closeToast, 2500);
+}
+
+function showSyncError(message) {
+  const toast = showToast(`
+    <div class="leetflow-header"><span class="leetflow-title" style="color:#cf222e;">❌ Sync failed</span><button class="leetflow-close-x" id="leetflow-x">✕</button></div>
+    <p style="margin: 6px 0; font-size: 12px; color: #57606a;">${escapeHtml(message)}</p>
+    <div class="leetflow-footer">
+      <button class="leetflow-btn-secondary" id="leetflow-dismiss-btn">Dismiss</button>
+      <button class="leetflow-btn-primary" id="leetflow-connect-btn">Settings</button>
+    </div>
+  `);
+  toast.querySelector("#leetflow-x")?.addEventListener("click", closeToast);
+  toast.querySelector("#leetflow-dismiss-btn")?.addEventListener("click", closeToast);
+  toast.querySelector("#leetflow-connect-btn")?.addEventListener("click", () => {
+    chrome.runtime.sendMessage({ type: "open-options" });
+    closeToast();
+  });
+}
+
+function showSyncResult(response) {
+  if (!response || response.ok === false) {
+    showSyncError(response?.error || "The extension background did not respond.");
+    return;
   }
+  if (!response.configured) {
+    showUnconfiguredNotice();
+    return;
+  }
+
+  const sync = response.syncResult;
+  if (sync) {
+    if (sync.rateLimited) {
+      showSyncError("GitHub rate limit reached. LeetFlow will retry automatically.");
+      return;
+    }
+    if (sync.failed > 0) {
+      showSyncError(sync.errors?.[0] || "Sync failed. Check your Settings.");
+      return;
+    }
+    if (sync.synced > 0) {
+      const commit = typeof sync.commit === "string" ? ` (${sync.commit.slice(0, 7)})` : "";
+      showSyncSuccess(`Synced ${sync.synced} solution${sync.synced > 1 ? "s" : ""}${commit}`);
+      return;
+    }
+    if (sync.skipped > 0) {
+      showUnconfiguredNotice();
+      return;
+    }
+  }
+
+  if (response.status === "unchanged") {
+    showSyncSuccess("Already synced — nothing changed.");
+    return;
+  }
+  showSyncSuccess("Saved to the local queue.");
+}
+
+function sendSolution(problem) {
+  return new Promise((resolve) => {
+    try {
+      chrome.runtime.sendMessage({ type: "accepted-solution", problem }, (response) => {
+        const failure = chrome.runtime.lastError;
+        if (failure) {
+          resolve({ ok: false, error: failure.message || String(failure) });
+          return;
+        }
+        resolve(response || { ok: false, error: "The extension background did not respond." });
+      });
+    } catch (error) {
+      resolve({ ok: false, error: error?.message || String(error) });
+    }
+  });
 }
 
 let isSyncing = false;
@@ -562,40 +585,33 @@ async function syncIfAccepted() {
       return;
     }
 
-    const key = `${problem.number}:${problem.language}:${problem.code.length}`;
+    const key = `${problem.slug}|${problem.language}|${hashString(problem.code)}`;
     if (key === lastKey) {
       isSyncing = false;
       return;
     }
     lastKey = key;
 
-    chrome.storage?.local?.get(["settings"], (res) => {
-      const settings = res?.settings || {};
-      const isConfigured = Boolean(settings.githubToken && settings.owner && settings.repo);
-      const shouldPrompt = settings.promptNotes !== false;
+    const settings = (await storageGet(["settings"])).settings || {};
+    const configured = Boolean(settings.githubToken && settings.owner && settings.repo);
+    const shouldPrompt = settings.promptNotes !== false;
 
-      if (!isConfigured) {
-        sendSolution(problem);
-        showUnconfiguredNotice();
-        isSyncing = false;
-        return;
-      }
+    if (!configured) {
+      await sendSolution(problem);
+      showUnconfiguredNotice();
+      isSyncing = false;
+      return;
+    }
 
-      if (shouldPrompt) {
-        showNotePrompt(problem, isConfigured);
-        isSyncing = false;
-      } else {
-        sendSolution(problem, (syncRes) => {
-          isSyncing = false;
-          if (syncRes?.syncResult?.synced > 0) {
-            showToast(`
-              <div class="leetflow-header"><span class="leetflow-title" style="color:#1a7f37;">✅ Synced to GitHub!</span></div>
-            `);
-            setTimeout(closeToast, 2000);
-          }
-        });
-      }
-    });
+    if (shouldPrompt) {
+      showNotePrompt(problem);
+      isSyncing = false;
+      return;
+    }
+
+    const response = await sendSolution(problem);
+    isSyncing = false;
+    showSyncResult(response);
   } catch (err) {
     console.error("[LeetFlow] syncIfAccepted error:", err);
     isSyncing = false;
@@ -621,21 +637,25 @@ function setupTimerBadge() {
   });
 }
 
-try {
-  chrome.storage?.local?.get(["settings"], (data) => {
-    if (data?.settings?.interviewMode) {
-      document.body.classList.add("leetflow-interview-mode");
-    }
-  });
-} catch {
-  // Ignored if storage is unavailable
+storageGet(["settings"]).then((data) => {
+  if (data?.settings?.interviewMode) {
+    document.body.classList.add("leetflow-interview-mode");
+  }
+});
+
+let scanTimer = 0;
+
+function scheduleScan() {
+  if (scanTimer) return;
+  scanTimer = setTimeout(() => {
+    scanTimer = 0;
+    checkSlugChange();
+    checkSubmissionFailure();
+    syncIfAccepted();
+  }, 300);
 }
 
-const observer = new MutationObserver(() => {
-  checkSlugChange();
-  checkSubmissionFailure();
-  syncIfAccepted();
-});
+const observer = new MutationObserver(scheduleScan);
 observer.observe(document.documentElement, { childList: true, subtree: true });
 
 checkSlugChange();

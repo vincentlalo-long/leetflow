@@ -19,3 +19,6 @@ button:hover { background: #ddf4ff; }
 .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .actions button { margin-top: 0; }
 .hint { color: #57606a; line-height: 1.45; font-size: 11px; margin-top: 10px; }
+#lastsync { color: #57606a; font-size: 11px; margin: -4px 0 0; }
+.note { font-size: 11px; margin-top: 6px; padding: 6px; border-radius: 4px; line-height: 1.4; word-break: break-word; }
+.note.error { color: #cf222e; background: #ffebe9; }

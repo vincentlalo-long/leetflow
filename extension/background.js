@@ -4,7 +4,9 @@ import {
   enqueue,
   getReviewState,
   gradeReviewJob,
-  runQueue
+  restoreReviewJobs,
+  runQueue,
+  skipReviewJob
 } from "./queue.js";
 
 function respond(sendResponse, promise) {
@@ -30,6 +32,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return respond(sendResponse, getReviewState());
     case "grade-review":
       return respond(sendResponse, gradeReviewJob(message.key, message.grade));
+    case "skip-review":
+      return respond(sendResponse, skipReviewJob(message.key));
+    case "restore-reviews":
+      return respond(sendResponse, restoreReviewJobs());
     default:
       return false;
   }

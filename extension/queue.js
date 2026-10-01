@@ -8,7 +8,7 @@ import {
   renderRootReadme,
   slugify
 } from "./templates.js";
-import { dueReviews, ensureReview, gradeReview } from "./review.js";
+import { dueReviews, ensureReview, gradeReview, restoreReview, skipReview } from "./review.js";
 
 export const QUEUE_ALARM = "leetflow-sync-queue";
 const METADATA_TIMEOUT_MS = 8000;
@@ -390,11 +390,17 @@ export async function getReviewState() {
       (problem) => problem && (problem.title || problem.slug)
     );
     const withReview = tracked.map(ensureReview);
-    const upcoming = [...withReview]
+    const active = withReview.filter((problem) => !problem.review.skipped);
+    const upcoming = [...active]
       .sort((a, b) => String(a.review.due).localeCompare(String(b.review.due)))
       .slice(0, 5)
       .map(summarizeReview);
-    return { due: dueReviews(withReview), upcoming, total: withReview.length };
+    return {
+      due: dueReviews(withReview),
+      upcoming,
+      total: active.length,
+      skipped: withReview.length - active.length
+    };
   });
 }
 
@@ -409,5 +415,31 @@ export async function gradeReviewJob(key, grade) {
       .filter((problem) => problem && (problem.title || problem.slug))
       .map(ensureReview);
     return { item: state.problems[key], due: dueReviews(tracked) };
+  });
+}
+
+export async function skipReviewJob(key) {
+  return withStateLock(async () => {
+    const state = await loadState();
+    const current = state.problems?.[key];
+    if (!current) throw new Error("Review item no longer exists.");
+    state.problems[key] = skipReview(current);
+    await saveState(state);
+    return summarizeReview(state.problems[key]);
+  });
+}
+
+export async function restoreReviewJobs() {
+  return withStateLock(async () => {
+    const state = await loadState();
+    let restored = 0;
+    for (const [key, problem] of Object.entries(state.problems || {})) {
+      if (problem?.review?.skipped) {
+        state.problems[key] = restoreReview(problem);
+        restored += 1;
+      }
+    }
+    if (restored > 0) await saveState(state);
+    return { restored };
   });
 }

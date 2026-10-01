@@ -51,14 +51,12 @@ function daysUntil(dateString) {
 
 let feedbackTimer = 0;
 
-function showReviewFeedback(problem, gradeLabel, due, error) {
+function showFeedback(text, kind = "ok") {
   const node = document.querySelector("#reviewFeedback");
   if (!node) return;
   node.hidden = false;
-  node.className = `feedback ${error ? "error" : "ok"}`;
-  node.textContent = error
-    ? `⚠️ ${gradeLabel} not saved — ${error}`
-    : `✅ ${problem.number}. ${problem.title} · ${gradeLabel} → next review ${due} (${daysUntil(due)})`;
+  node.className = `feedback ${kind}`;
+  node.textContent = text;
   clearTimeout(feedbackTimer);
   feedbackTimer = setTimeout(() => {
     node.hidden = true;
@@ -117,6 +115,7 @@ async function refresh() {
     : "";
 
   const upcoming = review.upcoming || [];
+  const skippedCount = review.skipped || 0;
   const scheduleHtml = upcoming.length
     ? `<div class="schedule-label">Schedule</div><ul class="schedule">${upcoming
         .map(
@@ -128,9 +127,25 @@ async function refresh() {
         .join("")}</ul>`
     : `<div class="schedule-label">Schedule</div><small class="schedule-empty">Nothing scheduled yet.</small>`;
 
+  const skippedHtml =
+    skippedCount > 0
+      ? `<div class="schedule-actions"><span>${skippedCount} skipped</span><button type="button" id="restoreReviews">Restore</button></div>`
+      : "";
+
   document.querySelector("#review").innerHTML = first
-    ? `<strong>Review now</strong><div class="review-current">${titleHtml}</div><small>Due ${escapeHtml(first.review.due)} · ${escapeHtml(daysUntil(first.review.due))} · ${review.due.length} due</small>${scheduleHtml}`
-    : `<strong>Review queue</strong><div>Nothing due right now.</div><small>${review.total || 0} tracked problems</small>${scheduleHtml}`;
+    ? `<strong>Review now</strong><div class="review-current">${titleHtml}</div><small>Due ${escapeHtml(first.review.due)} · ${escapeHtml(daysUntil(first.review.due))} · ${review.due.length} due</small>${scheduleHtml}${skippedHtml}`
+    : `<strong>Review queue</strong><div>Nothing due right now.</div><small>${review.total || 0} tracked problems</small>${scheduleHtml}${skippedHtml}`;
+
+  document.querySelector("#restoreReviews")?.addEventListener("click", async (event) => {
+    event.currentTarget.disabled = true;
+    const response = await send("restore-reviews");
+    if (!response.ok) {
+      showFeedback(`⚠️ Could not restore — ${response.error || "unknown error"}`, "error");
+    } else {
+      showFeedback(`↺ Restored ${response.restored} problem(s) — they are due now.`);
+    }
+    await refresh().catch(() => {});
+  });
 
   document.querySelectorAll("#grades button").forEach((button) => {
     button.disabled = !first;
@@ -138,12 +153,19 @@ async function refresh() {
       if (!first) return;
       const grade = button.dataset.grade;
       const label = button.textContent.trim();
+      const key = `${first.number}:${first.language}`;
       button.disabled = true;
-      const response = await send("grade-review", { key: `${first.number}:${first.language}`, grade });
-      if (response.ok) {
-        showReviewFeedback(first, label, response.item?.review?.due || "");
+      const response =
+        grade === "skip"
+          ? await send("skip-review", { key })
+          : await send("grade-review", { key, grade });
+      if (!response.ok) {
+        showFeedback(`⚠️ ${label} not saved — ${response.error || "unknown error"}`, "error");
+      } else if (grade === "skip") {
+        showFeedback(`⏭ ${first.number}. ${first.title} · no review needed — removed from schedule`);
       } else {
-        showReviewFeedback(first, label, "", response.error || "Could not save that grade.");
+        const due = response.item?.review?.due || "";
+        showFeedback(`✅ ${first.number}. ${first.title} · ${label} → next review ${due} (${daysUntil(due)})`);
       }
       await refresh().catch(() => {});
     };

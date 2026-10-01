@@ -65,6 +65,48 @@ test("grading a due review reports the next due date", async () => {
   delete store.problems["1:cpp"];
 });
 
+test("a freshly synced problem is reviewable immediately", async () => {
+  store.problems = {
+    "2:python3": {
+      number: "2",
+      title: "Add Two Numbers",
+      language: "python3",
+      code: "x",
+      review: { due: "2999-01-01", stability: 2, reviews: 0, lastGrade: "" }
+    }
+  };
+
+  const review = await dispatch({ type: "get-review" });
+  assert.equal(review.due.length, 1);
+  assert.equal(review.due[0].title, "Add Two Numbers");
+  assert.equal(review.upcoming[0].due, new Date().toISOString().slice(0, 10));
+  assert.equal(review.skipped, 0);
+});
+
+test("skip-review drops a problem and restore brings it back", async () => {
+  const skipped = await dispatch({ type: "skip-review", key: "2:python3" });
+  assert.equal(skipped.ok, true);
+  assert.equal(skipped.lastGrade, "skip");
+  assert.equal(skipped.due, "");
+
+  const afterSkip = await dispatch({ type: "get-review" });
+  assert.equal(afterSkip.due.length, 0);
+  assert.equal(afterSkip.upcoming.length, 0);
+  assert.equal(afterSkip.total, 0);
+  assert.equal(afterSkip.skipped, 1);
+
+  const restored = await dispatch({ type: "restore-reviews" });
+  assert.equal(restored.ok, true);
+  assert.equal(restored.restored, 1);
+
+  const afterRestore = await dispatch({ type: "get-review" });
+  assert.equal(afterRestore.total, 1);
+  assert.equal(afterRestore.due.length, 1);
+  assert.equal(afterRestore.skipped, 0);
+
+  delete store.problems["2:python3"];
+});
+
 test("retry-queue reports the drain result", async () => {
   const response = await dispatch({ type: "retry-queue" });
   assert.equal(response.ok, true);

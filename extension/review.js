@@ -16,7 +16,15 @@ function addDays(date, days) {
 }
 
 export function ensureReview(problem) {
-  if (problem.review) return problem;
+  if (problem.review) {
+    const review = problem.review;
+    // Anything never graded is reviewable right after the first sync,
+    // even when the record still carries the old delayed due date.
+    if (!review.skipped && !review.reviews && review.due > dateOnly()) {
+      return { ...problem, review: { ...review, due: dateOnly() } };
+    }
+    return problem;
+  }
 
   let initialStability = 2;
   // If struggled (took > 25 mins or failed multiple times) -> review sooner
@@ -30,7 +38,7 @@ export function ensureReview(problem) {
   return {
     ...problem,
     review: {
-      due: addDays(new Date(), initialStability),
+      due: dateOnly(),
       stability: initialStability,
       reviews: 0,
       lastGrade: ""
@@ -41,7 +49,7 @@ export function ensureReview(problem) {
 export function dueReviews(problems, today = dateOnly()) {
   return problems.filter((problem) => {
     const review = ensureReview(problem).review;
-    return review.due <= today;
+    return !review.skipped && Boolean(review.due) && review.due <= today;
   }).sort((a, b) => a.review.due.localeCompare(b.review.due));
 }
 
@@ -57,6 +65,32 @@ export function gradeReview(problem, grade) {
       stability,
       reviews: current.review.reviews + 1,
       lastGrade: grade
+    }
+  };
+}
+
+export function skipReview(problem) {
+  const current = ensureReview(problem);
+  return {
+    ...current,
+    review: {
+      ...current.review,
+      skipped: true,
+      due: "",
+      lastGrade: "skip"
+    }
+  };
+}
+
+export function restoreReview(problem) {
+  const review = problem.review || { stability: 2, reviews: 0 };
+  return {
+    ...problem,
+    review: {
+      ...review,
+      skipped: false,
+      due: dateOnly(),
+      lastGrade: ""
     }
   };
 }

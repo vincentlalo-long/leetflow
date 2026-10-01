@@ -3,6 +3,9 @@ name: Sign Firefox Add-on
 # Signs dist/firefox with addons.mozilla.org (unlisted channel) so the .xpi
 # can be installed permanently from about:addons and survives Firefox restarts.
 #
+# Runs standalone from the Actions tab, and as a reusable job called by the
+# Release workflow so the signed .xpi always lands on the GitHub Release.
+#
 # Required repository secrets:
 #   AMO_JWT_ISSUER  - the JWT issuer / API key, looks like "user:12345678:987"
 #   AMO_JWT_SECRET  - the JWT secret / API secret, shown only once at creation
@@ -12,8 +15,7 @@ name: Sign Firefox Add-on
 
 on:
   workflow_dispatch:
-  release:
-    types: [published]
+  workflow_call:
 
 permissions:
   contents: write
@@ -50,16 +52,28 @@ jobs:
             --api-key="$AMO_JWT_ISSUER" \
             --api-secret="$AMO_JWT_SECRET"
 
-      - name: Upload signed add-on
+      - name: Name the signed add-on
+        id: pkg
+        run: |
+          XPI=$(ls dist/signed/*.xpi | head -n 1)
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            NAME="leetflow-firefox-${GITHUB_REF_NAME}.xpi"
+          else
+            NAME="leetflow-firefox-signed.xpi"
+          fi
+          cp "$XPI" "dist/$NAME"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Upload signed add-on artifact
         uses: actions/upload-artifact@v4
         with:
           name: leetflow-firefox-signed
-          path: dist/signed/*.xpi
+          path: dist/leetflow-firefox-*.xpi
 
       - name: Attach signed add-on to the release
-        if: github.event_name == 'release'
+        if: github.ref_type == 'tag'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          XPI=$(ls dist/signed/*.xpi | head -n 1)
-          gh release upload "${{ github.event.release.tag_name }}" "$XPI" --clobber
+          gh release upload "$GITHUB_REF_NAME" \
+            "dist/${{ steps.pkg.outputs.name }}" --clobber

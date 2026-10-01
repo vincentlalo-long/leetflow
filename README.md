@@ -48,7 +48,7 @@ No Node.js or terminal required:
 
 **Chrome / Edge**
 
-1. Download `leetflow-chrome-v0.7.0.zip` from [Releases](https://github.com/vincentlalo-long/leetflow/releases).
+1. Download `leetflow-chrome-<tag>.zip` from [Releases](https://github.com/vincentlalo-long/leetflow/releases).
 2. Extract the `.zip` file into a folder.
 3. In Chrome, open `chrome://extensions`.
 4. Enable **Developer mode** (top-right toggle).
@@ -58,10 +58,14 @@ No Node.js or terminal required:
 
 Temporary add-ons loaded through `about:debugging` disappear when Firefox closes. Use the AMO-signed `.xpi` instead:
 
-1. Download `leetflow-firefox-v0.7.0.xpi` from [Releases](https://github.com/vincentlalo-long/leetflow/releases).
+1. Download `leetflow-firefox-<tag>.xpi` from [Releases](https://github.com/vincentlalo-long/leetflow/releases).
 2. Open `about:addons`.
 3. Click the gear icon → **Install Add-on From File…** and choose the `.xpi`.
 4. Confirm the installation. The add-on now survives Firefox restarts.
+
+No Firefox account and no AMO login are required to install a signed `.xpi`. Firefox shows a "not verified" prompt for unlisted add-ons — that is expected, click **Continue**.
+
+Every release carries exactly two assets: `leetflow-chrome-<tag>.zip` (load unpacked) and `leetflow-firefox-<tag>.xpi` (already signed by Mozilla).
 
 ### Option 2: Build from Source
 
@@ -86,7 +90,9 @@ Load the generated `dist/chrome/` folder via **Load unpacked**, or install `dist
 
 ## Signing the Firefox Add-on
 
-`about:debugging → Load Temporary Add-on` is temporary by design. To install the extension permanently you need an AMO-signed `.xpi`:
+> **End users can ignore this section** — the signed `.xpi` is already attached to every Release. You only need AMO credentials if you maintain the extension and want to publish a new signed version.
+
+`about:debugging → Load Temporary Add-on` is temporary by design. To distribute the extension permanently you need an AMO-signed `.xpi`:
 
 1. Create a Firefox account and sign in to <https://addons.mozilla.org>.
 2. Accept the **Firefox Add-on Distribution Agreement** (the API key page stays locked until you do).
@@ -96,8 +102,16 @@ Load the generated `dist/chrome/` folder via **Load unpacked**, or install `dist
 4. Add two repository secrets to this GitHub repository (`Settings → Secrets and variables → Actions → New repository secret`):
    - `AMO_JWT_ISSUER` — the JWT issuer.
    - `AMO_JWT_SECRET` — the JWT secret.
-5. Run the **Sign Firefox Add-on** workflow from the **Actions** tab (`Run workflow`), or publish a GitHub release — the workflow also runs on `release: published`.
-6. Download the signed `.xpi` from the workflow run's **Artifacts** (`leetflow-firefox-signed`), or from the release assets.
+5. Publish a release:
+   ```bash
+   npm version 0.7.1 --no-git-tag-version   # AMO rejects a reused version
+   git commit -am "release: v0.7.1"
+   git push
+   git tag v0.7.1 && git push origin v0.7.1
+   ```
+   The **Release** workflow runs the tests, builds the packages, publishes the Chrome `.zip`, then calls the **Sign Firefox Add-on** job which overwrites the Release's Firefox asset with the signed `.xpi`.
+
+   To sign without publishing (e.g. a test run), trigger **Sign Firefox Add-on** manually from the Actions tab — the `.xpi` is then available under that run's **Artifacts**.
 
 You do **not** need to publish the add-on publicly — the `unlisted` channel keeps it out of the store while still allowing normal installation. The credentials are account-wide and do not expire.
 

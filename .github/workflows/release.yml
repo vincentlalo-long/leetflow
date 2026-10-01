@@ -31,13 +31,6 @@ jobs:
       - name: Lint the Firefox package
         run: npx --yes web-ext lint --source-dir dist/firefox
 
-      - name: Name artifacts for the tag
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          cd dist
-          cp leetflow-chrome.zip "leetflow-chrome-${GITHUB_REF_NAME}.zip"
-          cp leetflow-firefox.xpi "leetflow-firefox-${GITHUB_REF_NAME}.xpi"
-
       - name: Upload workflow artifacts
         uses: actions/upload-artifact@v4
         with:
@@ -46,11 +39,18 @@ jobs:
             dist/leetflow-chrome.zip
             dist/leetflow-firefox.xpi
 
+      # Only the Chrome package goes on the Release here. The Firefox .xpi
+      # added to the Release must be the AMO-signed one, produced below.
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')
         with:
-          files: |
-            dist/leetflow-chrome-${{ github.ref_name }}.zip
-            dist/leetflow-firefox-${{ github.ref_name }}.xpi
+          files: dist/leetflow-chrome-${{ github.ref_name }}.zip
           generate_release_notes: true
+
+  sign-firefox:
+    name: Sign Firefox Add-on
+    needs: build-and-publish
+    if: startsWith(github.ref, 'refs/tags/')
+    uses: ./.github/workflows/sign-firefox.yml
+    secrets: inherit

@@ -41,6 +41,14 @@ jobs:
 
       # Only the Chrome package goes on the Release here. The Firefox .xpi
       # added to the Release must be the AMO-signed one, produced below.
+      - name: Name the Chrome package for the tag
+        if: startsWith(github.ref, 'refs/tags/')
+        run: cp dist/leetflow-chrome.zip "dist/leetflow-chrome-${GITHUB_REF_NAME}.zip"
+
+      - name: Verify the Chrome package exists
+        if: startsWith(github.ref, 'refs/tags/')
+        run: test -f "dist/leetflow-chrome-${GITHUB_REF_NAME}.zip"
+
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')

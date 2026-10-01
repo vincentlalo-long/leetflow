@@ -6,7 +6,9 @@ A browser extension that syncs accepted LeetCode solutions to a GitHub repositor
 
 - **Accepted-only sync**: Automatically captures accepted submissions from LeetCode.com and LeetCode.cn.
 - **Repository layout**: Saves solutions into numbered folders (`0001-two-sum/`) with proper file extensions and a generated problem `README.md`.
-- **Root catalog**: Maintains an index `README.md` organized by problem number and topic tags.
+- **Root catalog**: Maintains an index `README.md` organized by problem number and topic tags, wrapped in a `<!-- LEETFLOW:START/END -->` marker so anything you write around it is preserved.
+- **One commit per sync**: solution file, problem README, and root index are pushed in a single commit through the GitHub Git Data API.
+- **Resilient sync**: rate limits, moved branches, and transient GitHub errors are retried with backoff; failed jobs stay in the queue until they succeed.
 - **Quick notes prompt**: Optional toast prompt when a submission is accepted to jot down key insights or tricks.
 - **Solve telemetry**: Records elapsed time and submission attempts (WA/TLE/AC) for each problem.
 - **Review queue**: Spaced repetition review scheduling in the extension popup with Again, Hard, Good, and Easy grades.
@@ -21,7 +23,9 @@ LeetCode Accepted
        ↓
 Content script captures code & metadata
        ↓
-GitHub Contents API commit (Solution + README)
+Queue job (mutex-protected, retried with backoff)
+       ↓
+GitHub Git Data API: 1 commit (Solution + Problem README + Root README)
        ↓
 Local review queue in extension popup
 ```
@@ -42,13 +46,22 @@ LeetCode/
 
 No Node.js or terminal required:
 
-1. Download `leetflow-chrome-v0.6.1.zip` from [Releases](https://github.com/vincentlalo-long/leetflow/releases).
+**Chrome / Edge**
+
+1. Download `leetflow-chrome-v0.7.0.zip` from [Releases](https://github.com/vincentlalo-long/leetflow/releases).
 2. Extract the `.zip` file into a folder.
 3. In Chrome, open `chrome://extensions`.
 4. Enable **Developer mode** (top-right toggle).
 5. Click **Load unpacked** and select the extracted folder.
 
-*(For Firefox: download `leetflow-firefox-v0.6.1.zip`, open `about:debugging#/runtime/this-firefox`, click **Load Temporary Add-on**, and select the extracted `manifest.json`)*.
+**Firefox (permanent install)**
+
+Temporary add-ons loaded through `about:debugging` disappear when Firefox closes. Use the AMO-signed `.xpi` instead:
+
+1. Download `leetflow-firefox-v0.7.0.xpi` from [Releases](https://github.com/vincentlalo-long/leetflow/releases).
+2. Open `about:addons`.
+3. Click the gear icon → **Install Add-on From File…** and choose the `.xpi`.
+4. Confirm the installation. The add-on now survives Firefox restarts.
 
 ### Option 2: Build from Source
 
@@ -57,7 +70,8 @@ git clone https://github.com/vincentlalo-long/leetflow.git
 cd leetflow
 node build.mjs
 ```
-Load the generated `dist/chrome/` folder via **Load unpacked**.
+
+Load the generated `dist/chrome/` folder via **Load unpacked**, or install `dist/leetflow-firefox.xpi` as described above.
 
 ### 3. Configuration
 
@@ -70,18 +84,26 @@ Load the generated `dist/chrome/` folder via **Load unpacked**.
    - **Root directory**: Target directory in repo (default `LeetCode`).
 3. Click **Save settings**.
 
+## Signing the Firefox Add-on
+
+`about:debugging → Load Temporary Add-on` is temporary by design. To install the extension permanently you need an AMO-signed `.xpi`:
+
+1. Once at <https://addons.mozilla.org/en-US/developers/addon/api/key/>, create an API key pair. Copy the **Issuer (JWT ID)** and download the private key file.
+2. Add two repository secrets:
+   - `AMO_JWT_ISSUER` — the issuer value.
+   - `AMO_JWT_SIGNING_KEY` — the full content of the private key PEM file.
+3. Run the **Sign Firefox Add-on** workflow from the Actions tab (or publish a release; the workflow runs on `release: published` too).
+4. Download the signed `.xpi` from the workflow artifacts, or from the release assets.
+
+You do **not** need to publish the add-on publicly — the unlisted channel keeps it out of the store while still allowing normal installation.
+
 ## Development Checks
 
-Run syntax validation and smoke checks:
-
 ```bash
-for f in extension/*.js; do node --check "$f"; done
-node --input-type=module <<'EOF'
-import assert from "node:assert/strict";
-import { renderRootReadme } from "./extension/templates.js";
-assert.match(renderRootReadme([], { rootDir: "LeetCode" }), /LeetCode Solutions/);
-console.log("smoke test passed");
-EOF
+npm test          # unit + integration tests
+node build.mjs    # builds dist/chrome, dist/firefox, .zip and .xpi
+npx web-ext lint --source-dir dist/firefox
+npm run check     # build + tests
 ```
 
 ## Security Note

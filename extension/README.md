@@ -14,7 +14,8 @@ This directory contains the shared browser source for Chrome and Firefox. It arc
 
 4. Install the matching package:
    - Chrome: open `chrome://extensions`, enable **Developer mode**, choose **Load unpacked**, and select `dist/chrome/`.
-   - Firefox: open `about:debugging#/runtime/this-firefox`, choose **Load Temporary Add-on**, and select `dist/firefox/manifest.json`.
+   - Firefox (temporary, for development): open `about:debugging#/runtime/this-firefox`, choose **Load Temporary Add-on**, and select `dist/firefox/manifest.json`. Temporary add-ons are removed when Firefox closes.
+   - Firefox (permanent): build `dist/leetflow-firefox.xpi`, open `about:addons`, click the gear icon and choose **Install Add-on From File…**. This requires an AMO-signed package; see the repository README for the signing workflow.
 
 5. Open the LeetFlow extension menu and choose **Options**.
 6. Fill in:
@@ -23,9 +24,17 @@ This directory contains the shared browser source for Chrome and Firefox. It arc
    - Repository name
    - Branch, normally `main`
    - Root directory, normally `LeetCode`
-9. Enable automatic sync and root README updates, then save.
+7. Enable automatic sync and root README updates, then save.
 
-The options page verifies that the repository is reachable before saving. Firefox temporary add-ons must be loaded again after Firefox restarts.
+The options page verifies that the repository is reachable before saving, but a repository that does not exist yet is allowed — the first sync creates it.
+
+## Sync behaviour
+
+- Every accepted submission is queued, then drained by a single background worker. Concurrent solutions are serialized and committed together.
+- A solution, its problem `README.md`, and the root index are pushed as **one commit** through the GitHub Git Data API.
+- Resubmitting an unchanged solution reports `unchanged` and does not create a commit; a modified solution creates a new commit.
+- GitHub rate limits and transient errors leave the job in the queue and schedule a retry with backoff. Use the popup's **Sync / Retry now** button to force a run.
+- The root `README.md` is merged inside `<!-- LEETFLOW:START -->` / `<!-- LEETFLOW:END -->` markers, so anything you write outside the block is never overwritten.
 
 ## Daily workflow
 

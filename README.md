@@ -124,6 +124,30 @@ npx web-ext lint --source-dir dist/firefox
 npm run check     # build + tests
 ```
 
+### Test a build before releasing
+
+```bash
+node build.mjs
+```
+
+- **Chrome**: `chrome://extensions` → enable **Developer mode** → **Load unpacked** → `dist/chrome/`
+- **Firefox**: `about:debugging#/runtime/this-firefox` → **Load Temporary Add-on** → `dist/firefox/manifest.json`
+
+Temporary add-ons disappear when Firefox closes — expected while developing. Neither option consumes an AMO version.
+
+### Releasing
+
+Every tag is signed once by AMO and **AMO rejects a reused version number**, so tag only when the build is ready:
+
+```bash
+npm version 0.7.2 --no-git-tag-version
+git commit -am "release: v0.7.2"
+git push
+git tag v0.7.2 && git push origin v0.7.2
+```
+
+The Release workflow runs the tests, builds, publishes `leetflow-chrome-<tag>.zip`, then signs and attaches `leetflow-firefox-<tag>.xpi`.
+
 ## Security Note
 
 This developer version stores the GitHub token locally in `chrome.storage.local`. Do not commit extension storage exports or share tokens.

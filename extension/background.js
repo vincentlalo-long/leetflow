@@ -25,7 +25,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case "retry-queue":
       return respond(sendResponse, runQueue());
     case "get-state":
-      return respond(sendResponse, loadState());
+      return respond(sendResponse, loadState().then((state) => ({ state })));
     case "get-review":
       return respond(sendResponse, getReviewState());
     case "grade-review":

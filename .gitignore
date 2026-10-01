@@ -6,3 +6,6 @@ dist/
 
 # Local browser exports and test artifacts
 .extension-state/
+
+# Local credentials — never commit
+key.txt

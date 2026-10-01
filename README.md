@@ -88,14 +88,18 @@ Load the generated `dist/chrome/` folder via **Load unpacked**, or install `dist
 
 `about:debugging → Load Temporary Add-on` is temporary by design. To install the extension permanently you need an AMO-signed `.xpi`:
 
-1. Once at <https://addons.mozilla.org/en-US/developers/addon/api/key/>, create an API key pair. Copy the **Issuer (JWT ID)** and download the private key file.
-2. Add two repository secrets:
-   - `AMO_JWT_ISSUER` — the issuer value.
-   - `AMO_JWT_SIGNING_KEY` — the full content of the private key PEM file.
-3. Run the **Sign Firefox Add-on** workflow from the Actions tab (or publish a release; the workflow runs on `release: published` too).
-4. Download the signed `.xpi` from the workflow artifacts, or from the release assets.
+1. Create a Firefox account and sign in to <https://addons.mozilla.org>.
+2. Accept the **Firefox Add-on Distribution Agreement** (the API key page stays locked until you do).
+3. Open the API key page: <https://addons.mozilla.org/developers/addon/api/key/> and generate a credential pair.
+   - **JWT issuer** (API key), looks like `user:12345678:987`.
+   - **JWT secret** (API secret), 64 hex characters — **shown only once**; if you lose it, generate a new pair (the old one is revoked).
+4. Add two repository secrets to this GitHub repository (`Settings → Secrets and variables → Actions → New repository secret`):
+   - `AMO_JWT_ISSUER` — the JWT issuer.
+   - `AMO_JWT_SECRET` — the JWT secret.
+5. Run the **Sign Firefox Add-on** workflow from the **Actions** tab (`Run workflow`), or publish a GitHub release — the workflow also runs on `release: published`.
+6. Download the signed `.xpi` from the workflow run's **Artifacts** (`leetflow-firefox-signed`), or from the release assets.
 
-You do **not** need to publish the add-on publicly — the unlisted channel keeps it out of the store while still allowing normal installation.
+You do **not** need to publish the add-on publicly — the `unlisted` channel keeps it out of the store while still allowing normal installation. The credentials are account-wide and do not expire.
 
 ## Development Checks
 

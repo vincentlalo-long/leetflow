@@ -4,11 +4,11 @@ name: Sign Firefox Add-on
 # can be installed permanently from about:addons and survives Firefox restarts.
 #
 # Required repository secrets:
-#   AMO_JWT_ISSUER       - the "Issuer (JWT ID)" from your AMO API key pair
-#   AMO_JWT_SIGNING_KEY  - the content of the private key PEM file
+#   AMO_JWT_ISSUER  - the JWT issuer / API key, looks like "user:12345678:987"
+#   AMO_JWT_SECRET  - the JWT secret / API secret, shown only once at creation
 #
-# Create the key pair once at:
-#   https://addons.mozilla.org/en-US/developers/addon/api/key/
+# Create the credentials once at:
+#   https://addons.mozilla.org/developers/addon/api/key/
 
 on:
   workflow_dispatch:
@@ -37,21 +37,18 @@ jobs:
       - name: Sign the add-on (unlisted)
         env:
           AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
-          AMO_JWT_SIGNING_KEY: ${{ secrets.AMO_JWT_SIGNING_KEY }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
         run: |
-          if [ -z "$AMO_JWT_ISSUER" ] || [ -z "$AMO_JWT_SIGNING_KEY" ]; then
-            echo "Missing AMO_JWT_ISSUER or AMO_JWT_SIGNING_KEY repository secrets." >&2
+          if [ -z "$AMO_JWT_ISSUER" ] || [ -z "$AMO_JWT_SECRET" ]; then
+            echo "Missing AMO_JWT_ISSUER or AMO_JWT_SECRET repository secrets." >&2
             exit 1
           fi
-          mkdir -p "$HOME/.web-ext"
-          printf '%b' "$AMO_JWT_SIGNING_KEY" > "$HOME/.web-ext/amo-signing-key.pem"
           npx --yes web-ext sign \
             --source-dir dist/firefox \
             --artifacts-dir dist/signed \
             --channel=unlisted \
-            --amo-issuer="$AMO_JWT_ISSUER" \
-            --amo-signing-key="$HOME/.web-ext/amo-signing-key.pem"
-          rm -f "$HOME/.web-ext/amo-signing-key.pem"
+            --api-key="$AMO_JWT_ISSUER" \
+            --api-secret="$AMO_JWT_SECRET"
 
       - name: Upload signed add-on
         uses: actions/upload-artifact@v4

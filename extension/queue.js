@@ -370,6 +370,19 @@ async function drainQueue() {
   return result;
 }
 
+function summarizeReview(problem) {
+  return {
+    number: problem.number,
+    title: problem.title,
+    language: problem.language,
+    url: problem.url,
+    due: problem.review?.due || "",
+    stability: problem.review?.stability ?? 0,
+    reviews: problem.review?.reviews ?? 0,
+    lastGrade: problem.review?.lastGrade || ""
+  };
+}
+
 export async function getReviewState() {
   return withStateLock(async () => {
     const state = await loadState();
@@ -377,7 +390,11 @@ export async function getReviewState() {
       (problem) => problem && (problem.title || problem.slug)
     );
     const withReview = tracked.map(ensureReview);
-    return { due: dueReviews(withReview), total: withReview.length };
+    const upcoming = [...withReview]
+      .sort((a, b) => String(a.review.due).localeCompare(String(b.review.due)))
+      .slice(0, 5)
+      .map(summarizeReview);
+    return { due: dueReviews(withReview), upcoming, total: withReview.length };
   });
 }
 

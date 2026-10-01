@@ -22,3 +22,14 @@ button:hover { background: #ddf4ff; }
 #lastsync { color: #57606a; font-size: 11px; margin: -4px 0 0; }
 .note { font-size: 11px; margin-top: 6px; padding: 6px; border-radius: 4px; line-height: 1.4; word-break: break-word; }
 .note.error { color: #cf222e; background: #ffebe9; }
+.feedback { font-size: 11px; padding: 6px 8px; border-radius: 4px; margin: 0 0 12px; line-height: 1.4; }
+.feedback.ok { color: #1a7f37; background: #dafbe1; }
+.feedback.error { color: #cf222e; background: #ffebe9; }
+.review-current { margin: 4px 0; }
+.schedule-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: #57606a; margin-top: 10px; }
+.schedule { list-style: none; margin: 4px 0 0; padding: 0; }
+.schedule li { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 4px 0; border-top: 1px solid #eaeef2; font-size: 11px; }
+.schedule-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.schedule-date { color: #57606a; white-space: nowrap; }
+.schedule li.due .schedule-date { color: #cf222e; font-weight: 600; }
+.schedule-empty { color: #57606a; }

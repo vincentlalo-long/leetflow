@@ -40,6 +40,31 @@ function escapeHtml(value) {
   })[character]);
 }
 
+function daysUntil(dateString) {
+  if (!dateString) return "";
+  const target = new Date(`${dateString}T00:00:00Z`).getTime();
+  if (Number.isNaN(target)) return "";
+  const days = Math.round((target - Date.now()) / 86400000);
+  if (days <= 0) return "due now";
+  return `in ${days} day${days === 1 ? "" : "s"}`;
+}
+
+let feedbackTimer = 0;
+
+function showReviewFeedback(problem, gradeLabel, due, error) {
+  const node = document.querySelector("#reviewFeedback");
+  if (!node) return;
+  node.hidden = false;
+  node.className = `feedback ${error ? "error" : "ok"}`;
+  node.textContent = error
+    ? `⚠️ ${gradeLabel} not saved — ${error}`
+    : `✅ ${problem.number}. ${problem.title} · ${gradeLabel} → next review ${due} (${daysUntil(due)})`;
+  clearTimeout(feedbackTimer);
+  feedbackTimer = setTimeout(() => {
+    node.hidden = true;
+  }, 8000);
+}
+
 async function refresh() {
   const response = await send("get-state");
   if (!response.ok) throw new Error(response.error || "Could not read extension state.");
@@ -84,21 +109,43 @@ async function refresh() {
   const review = await send("get-review");
   if (!review.ok) throw new Error(review.error || "Could not read the review queue.");
   const first = review.due?.[0];
+  const today = new Date().toISOString().slice(0, 10);
   const titleHtml = first
     ? first.url
-      ? `<a href="${escapeHtml(first.url)}" target="_blank" style="color: #0969da; text-decoration: none; font-weight: 500;">${escapeHtml(first.number)}. ${escapeHtml(first.title)} ↗</a>`
+      ? `<a href="${escapeHtml(first.url)}" target="_blank" rel="noreferrer" style="color: #0969da; text-decoration: none; font-weight: 500;">${escapeHtml(first.number)}. ${escapeHtml(first.title)} ↗</a>`
       : `<span>${escapeHtml(first.number)}. ${escapeHtml(first.title)}</span>`
     : "";
 
+  const upcoming = review.upcoming || [];
+  const scheduleHtml = upcoming.length
+    ? `<div class="schedule-label">Schedule</div><ul class="schedule">${upcoming
+        .map(
+          (item) => `<li class="${item.due <= today ? "due" : ""}">
+            <span class="schedule-title">${escapeHtml(item.number)}. ${escapeHtml(item.title)}</span>
+            <span class="schedule-date">${escapeHtml(item.due)} · ${escapeHtml(daysUntil(item.due))}</span>
+          </li>`
+        )
+        .join("")}</ul>`
+    : `<div class="schedule-label">Schedule</div><small class="schedule-empty">Nothing scheduled yet.</small>`;
+
   document.querySelector("#review").innerHTML = first
-    ? `<strong>Review now</strong><div style="margin: 4px 0;">${titleHtml}</div><small>Due ${escapeHtml(first.review.due)} · ${review.due.length} due</small>`
-    : `<strong>Review queue</strong><div>Nothing due right now.</div><small>${review.total || 0} tracked problems</small>`;
+    ? `<strong>Review now</strong><div class="review-current">${titleHtml}</div><small>Due ${escapeHtml(first.review.due)} · ${escapeHtml(daysUntil(first.review.due))} · ${review.due.length} due</small>${scheduleHtml}`
+    : `<strong>Review queue</strong><div>Nothing due right now.</div><small>${review.total || 0} tracked problems</small>${scheduleHtml}`;
 
   document.querySelectorAll("#grades button").forEach((button) => {
     button.disabled = !first;
     button.onclick = async () => {
-      await send("grade-review", { key: `${first.number}:${first.language}`, grade: button.dataset.grade });
-      await refresh();
+      if (!first) return;
+      const grade = button.dataset.grade;
+      const label = button.textContent.trim();
+      button.disabled = true;
+      const response = await send("grade-review", { key: `${first.number}:${first.language}`, grade });
+      if (response.ok) {
+        showReviewFeedback(first, label, response.item?.review?.due || "");
+      } else {
+        showReviewFeedback(first, label, "", response.error || "Could not save that grade.");
+      }
+      await refresh().catch(() => {});
     };
   });
 

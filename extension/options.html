@@ -14,7 +14,11 @@
     <label><input id="updateRootReadme" type="checkbox"> Update generated root README</label>
     <label><input id="promptNotes" type="checkbox"> Prompt for quick insight/notes upon Accepted</label>
     <label><input id="interviewMode" type="checkbox"> Interview Mode (blur topic tags to prevent spoiler)</label>
-    <button id="save">Save settings</button><span id="message"></span>
+    <div class="save-row">
+      <button id="save">Save settings</button>
+      <button id="closeTab" class="secondary" type="button" hidden>Close this tab</button>
+      <span id="message"></span>
+    </div>
   </main>
   <script type="module" src="options.js"></script>
 </body>

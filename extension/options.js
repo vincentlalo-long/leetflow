@@ -16,8 +16,11 @@ const $ = (id) => document.getElementById(id);
 
 function setMessage(text, kind) {
   const node = $("message");
-  node.textContent = text;
+  const hint = kind === "error" ? "" : " You can close this tab.";
+  node.textContent = text + hint;
   node.style.color = kind === "error" ? "#cf222e" : kind === "warn" ? "#9a6700" : "#1a7f37";
+  const close = $("closeTab");
+  if (close) close.hidden = kind === "error";
 }
 
 function send(type, payload = {}) {
@@ -91,5 +94,14 @@ async function save() {
 $("save").addEventListener("click", () =>
   save().catch((error) => setMessage(error.message || String(error), "error"))
 );
+
+$("closeTab").addEventListener("click", () => {
+  setMessage("Settings saved. Close this tab manually (Ctrl+W / Cmd+W).", "ok");
+  try {
+    window.close();
+  } catch {
+    /* the browser refused to close the tab — the hint above stays visible */
+  }
+});
 
 load().catch((error) => setMessage(error.message || String(error), "error"));

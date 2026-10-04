@@ -40,6 +40,11 @@ function escapeHtml(value) {
   })[character]);
 }
 
+function setHtml(element, markup) {
+  const doc = new DOMParser().parseFromString(markup, "text/html");
+  element.replaceChildren(...doc.body.childNodes);
+}
+
 function daysUntil(dateString) {
   if (!dateString) return "";
   const target = new Date(`${dateString}T00:00:00Z`).getTime();
@@ -88,11 +93,11 @@ async function refresh() {
     notes.push(`<div class="note error">⚠️ ${escapeHtml(state.lastError)}</div>`);
   }
 
-  document.querySelector("#summary").innerHTML = `
+  setHtml(document.querySelector("#summary"), `
     <div class="row"><span>Pending</span><strong>${pending}</strong></div>
     <div class="row"><span>Failed</span><strong class="${failed.length ? "failed" : ""}">${failed.length}</strong></div>
     <div class="row"><span>Synced records</span><strong>${problems.length}</strong></div>
-    ${notes.join("")}`;
+    ${notes.join("")}`);
 
   const roadmapStats = getRoadmapProgress(problems);
 
@@ -132,9 +137,9 @@ async function refresh() {
       ? `<div class="schedule-actions"><span>${skippedCount} skipped</span><button type="button" id="restoreReviews">Restore</button></div>`
       : "";
 
-  document.querySelector("#review").innerHTML = first
+  setHtml(document.querySelector("#review"), first
     ? `<strong>Review now</strong><div class="review-current">${titleHtml}</div><small>Due ${escapeHtml(first.review.due)} · ${escapeHtml(daysUntil(first.review.due))} · ${review.due.length} due</small>${scheduleHtml}${skippedHtml}`
-    : `<strong>Review queue</strong><div>Nothing due right now.</div><small>${review.total || 0} tracked problems</small>${scheduleHtml}${skippedHtml}`;
+    : `<strong>Review queue</strong><div>Nothing due right now.</div><small>${review.total || 0} tracked problems</small>${scheduleHtml}${skippedHtml}`);
 
   document.querySelector("#restoreReviews")?.addEventListener("click", async (event) => {
     event.currentTarget.disabled = true;
@@ -233,6 +238,6 @@ document.querySelector("#options").addEventListener("click", () => chrome.runtim
 
 refresh().catch((error) => {
   document.querySelector("#status").textContent = "Error";
-  document.querySelector("#summary").innerHTML =
-    `<div class="note error">⚠️ ${escapeHtml(error.message)}</div>`;
+  setHtml(document.querySelector("#summary"),
+    `<div class="note error">⚠️ ${escapeHtml(error.message)}</div>`);
 });

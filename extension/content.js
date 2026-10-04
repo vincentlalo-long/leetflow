@@ -407,6 +407,11 @@ function storageGet(keys) {
   });
 }
 
+function setHtml(element, markup) {
+  const doc = new DOMParser().parseFromString(markup, "text/html");
+  element.replaceChildren(...doc.body.childNodes);
+}
+
 function showToast(contentHtml) {
   let toast = document.getElementById("leetflow-toast");
   if (!toast) {
@@ -414,7 +419,7 @@ function showToast(contentHtml) {
     toast.id = "leetflow-toast";
     document.body.appendChild(toast);
   }
-  toast.innerHTML = contentHtml;
+  setHtml(toast, contentHtml);
   return toast;
 }
 
@@ -523,7 +528,7 @@ function showNotePrompt(problem) {
     problem.notes = (note || "").trim();
     problem.timeComplexity = (timeInput?.value || "").trim();
     problem.spaceComplexity = (spaceInput?.value || "").trim();
-    toast.innerHTML = `<div class="leetflow-header"><span class="leetflow-title">🚀 Syncing to GitHub...</span></div>`;
+    setHtml(toast, `<div class="leetflow-header"><span class="leetflow-title">🚀 Syncing to GitHub...</span></div>`);
     sendSolution(problem).then(showSyncResult);
   };
 

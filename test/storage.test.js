@@ -64,3 +64,51 @@ test("migrateLegacyState keeps a stub record for sync markers without metadata",
   assert.equal(problems["42:Go"].language, "Go");
   assert.equal(problems["42:Go"].syncedAt, "2024-02-02T00:00:00.000Z");
 });
+
+test("loadState wraps records without solutions into a default approach entry", async () => {
+  installChromeMock({
+    problems: {
+      "1:Python3": {
+        number: "1",
+        language: "Python3",
+        title: "Two Sum",
+        code: "x = 1",
+        notes: "hello",
+        timeComplexity: "O(N)"
+      }
+    }
+  });
+
+  const state = await loadState();
+  const record = state.problems["1:Python3"];
+  assert.equal(record.solutions.length, 1);
+  assert.equal(record.solutions[0].approach, "");
+  assert.equal(record.solutions[0].code, "x = 1");
+  assert.equal(record.solutions[0].notes, "hello");
+  assert.equal(record.solutions[0].timeComplexity, "O(N)");
+  assert.equal(record.code, "x = 1", "legacy fields stay readable");
+});
+
+test("loadState keeps existing multi-approach records untouched", async () => {
+  installChromeMock({
+    problems: {
+      "1:Python3": {
+        number: "1",
+        language: "Python3",
+        title: "Two Sum",
+        code: "second",
+        solutions: [
+          { approach: "", code: "first" },
+          { approach: "HashMap", code: "second", notes: "n", timeComplexity: "O(N)" }
+        ]
+      }
+    }
+  });
+
+  const state = await loadState();
+  const record = state.problems["1:Python3"];
+  assert.equal(record.solutions.length, 2);
+  assert.equal(record.solutions[0].code, "first");
+  assert.equal(record.solutions[1].notes, "n");
+  assert.equal(record.code, "second", "the stored mirror is not rewritten on read");
+});

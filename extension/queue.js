@@ -6,7 +6,8 @@ import {
   problemPath,
   renderProblemReadme,
   renderRootReadme,
-  slugify
+  slugify,
+  solutionFiles
 } from "./templates.js";
 import { dueReviews, ensureReview, gradeReview, restoreReview, skipReview } from "./review.js";
 
@@ -117,17 +118,67 @@ export function normalizeIncoming(problem) {
   return {
     ...source,
     language: language.name,
-    extension: source.extension || language.ext
+    extension: source.extension || language.ext,
+    approach: typeof source.approach === "string" ? source.approach.trim() : ""
   };
 }
 
+function solutionsOf(existing) {
+  if (Array.isArray(existing?.solutions) && existing.solutions.length) {
+    return [...existing.solutions];
+  }
+  if (!existing) return [];
+  return [
+    {
+      approach: "",
+      code: existing.code || "",
+      notes: existing.notes || "",
+      timeComplexity: existing.timeComplexity || "",
+      spaceComplexity: existing.spaceComplexity || "",
+      acceptedAt: existing.acceptedAt || existing.syncedAt || ""
+    }
+  ];
+}
+
+function solutionFor(existing, approach) {
+  const wanted = slugify(approach);
+  return solutionsOf(existing).find((solution) => slugify(solution.approach) === wanted) || null;
+}
+
+export function upsertSolution(existing, incoming) {
+  const solutions = solutionsOf(existing);
+  const approach = String(incoming?.approach || "").trim();
+  const entry = {
+    approach,
+    code: String(incoming?.code ?? ""),
+    notes: String(incoming?.notes || ""),
+    timeComplexity: String(incoming?.timeComplexity || ""),
+    spaceComplexity: String(incoming?.spaceComplexity || "")
+  };
+  const index = solutions.findIndex((solution) => slugify(solution.approach) === slugify(approach));
+
+  if (index >= 0) {
+    const previous = solutions[index];
+    solutions[index] = {
+      ...previous,
+      ...entry,
+      acceptedAt: incoming?.acceptedAt || previous.acceptedAt || ""
+    };
+  } else {
+    solutions.push({ ...entry, acceptedAt: incoming?.acceptedAt || "" });
+  }
+  return solutions;
+}
+
 function sameSolution(existing, incoming) {
+  if (!existing?.syncedAt) return false;
+  const current = solutionFor(existing, incoming.approach);
+  if (!current) return false;
   return (
-    Boolean(existing?.syncedAt) &&
-    existing.code === incoming.code &&
-    (existing.notes || "") === (incoming.notes || "") &&
-    (existing.timeComplexity || "") === (incoming.timeComplexity || "") &&
-    (existing.spaceComplexity || "") === (incoming.spaceComplexity || "")
+    current.code === incoming.code &&
+    (current.notes || "") === (incoming.notes || "") &&
+    (current.timeComplexity || "") === (incoming.timeComplexity || "") &&
+    (current.spaceComplexity || "") === (incoming.spaceComplexity || "")
   );
 }
 
@@ -155,6 +206,7 @@ export async function enqueue(rawProblem) {
 
     const merged = { ...(existing || {}), ...resolved };
     if (existing?.review) merged.review = existing.review;
+    merged.solutions = upsertSolution(existing, resolved);
     const reviewed = ensureReview(merged);
     state.problems[key] = reviewed;
     result.status = existing?.syncedAt ? "queued-update" : "queued";
@@ -209,9 +261,9 @@ async function buildFiles(prepared, problems, settings) {
   for (const entry of prepared) {
     const problem = entry.problem;
     const base = problemPath(problem, settings);
-    const extension = problem.extension || normalizeLanguage(problem.language).ext || "txt";
-    const solutionFile = `${slugify(problem.slug || problem.title)}.${extension}`;
-    files.push({ path: `${base}/${solutionFile}`, content: String(problem.code ?? "") });
+    for (const { solution, file } of solutionFiles(problem)) {
+      files.push({ path: `${base}/${file}`, content: String(solution.code ?? "") });
+    }
     files.push({ path: `${base}/README.md`, content: renderProblemReadme(problem, settings) });
   }
 
@@ -288,6 +340,7 @@ async function drainQueue() {
       const existing = problems[key] || state.problems[job.key];
       const record = { ...(existing || {}), ...problem, syncedAt: new Date().toISOString() };
       if (existing?.review) record.review = existing.review;
+      record.solutions = upsertSolution(existing, problem);
       const reviewed = ensureReview(record);
 
       job.key = key;

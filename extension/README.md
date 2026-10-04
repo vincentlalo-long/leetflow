@@ -31,6 +31,7 @@ The options page verifies that the repository is reachable before saving, but a 
 ## Sync behaviour
 
 - Every accepted submission is queued, then drained by a single background worker. Concurrent solutions are serialized and committed together.
+- Each submission can carry an optional **approach label** entered in the notes prompt. Different labels for the same problem and language are stored side by side (`two-sum.py`, `two-sum-hashmap.py`) instead of overwriting each other; the problem `README.md` lists every approach with its file, complexity and notes.
 - A solution, its problem `README.md`, and the root index are pushed as **one commit** through the GitHub Git Data API.
 - Resubmitting an unchanged solution reports `unchanged` and does not create a commit; a modified solution creates a new commit.
 - GitHub rate limits and transient errors leave the job in the queue and schedule a retry with backoff. Use the popup's **Sync / Retry now** button to force a run.

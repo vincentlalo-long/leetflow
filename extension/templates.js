@@ -84,10 +84,33 @@ export function problemPath(problem, settings) {
   return `${root}${folder}`;
 }
 
+export function solutionFiles(problem) {
+  const extension = problem.extension || normalizeLanguage(problem.language).ext || "txt";
+  const base = slugify(problem.slug || problem.title);
+  const solutions =
+    Array.isArray(problem.solutions) && problem.solutions.length
+      ? problem.solutions
+      : [{ approach: "", code: problem.code ?? "" }];
+
+  const used = new Set();
+  return solutions.map((solution) => {
+    const label = slugify(solution.approach);
+    const stem = label ? `${base}-${label}` : base;
+    let file = `${stem}.${extension}`;
+    let counter = 2;
+    while (used.has(file)) {
+      file = `${stem}-v${counter}.${extension}`;
+      counter += 1;
+    }
+    used.add(file);
+    return { solution, file };
+  });
+}
+
 export function renderProblemReadme(problem, settings) {
   const tags = (problem.tags || []).map((tag) => `[${tag}](../README.md#tag-${slugify(tag)})`).join(", ") || "-";
-  const ext = problem.extension || normalizeLanguage(problem.language).ext || "txt";
-  const solution = `${slugify(problem.slug || problem.title)}.${ext}`;
+  const entries = solutionFiles(problem);
+  const single = entries.length === 1 && !String(entries[0].solution.approach || "").trim();
   const cleanTitle = String(problem.title || "").replace(/^\d+\.\s*/, "").trim();
   const roadmaps = getRoadmapBadges(problem.number);
   const badgeLine = [badge(problem.difficulty), roadmaps].filter(Boolean).join(" ");
@@ -98,12 +121,40 @@ export function renderProblemReadme(problem, settings) {
 
   const numPrefix = /^\d+$/.test(String(problem.number)) ? `${problem.number}. ` : "";
 
-  const complexityRows = [
-    problem.timeComplexity ? `| Time Complexity | \`${escapeCell(problem.timeComplexity)}\` |` : "",
-    problem.spaceComplexity ? `| Space Complexity | \`${escapeCell(problem.spaceComplexity)}\` |` : ""
+  const complexityRows = single
+    ? [
+        problem.timeComplexity ? `| Time Complexity | \`${escapeCell(problem.timeComplexity)}\` |` : "",
+        problem.spaceComplexity ? `| Space Complexity | \`${escapeCell(problem.spaceComplexity)}\` |` : ""
+      ]
+        .filter(Boolean)
+        .join("\n")
+    : "";
+
+  const solutionsSection = single
+    ? `## Solution
+
+[\`${entries[0].file}\`](./${entries[0].file})
+
+## Notes
+
+${notesSection}`
+    : `## Solutions
+
+${entries.map(({ solution, file }) => {
+  const heading = String(solution.approach || "").replace(/\n/g, " ").trim() || "Default";
+  const rows = [
+    solution.timeComplexity ? `- **Time**: \`${escapeCell(solution.timeComplexity)}\`` : "",
+    solution.spaceComplexity ? `- **Space**: \`${escapeCell(solution.spaceComplexity)}\`` : ""
   ]
     .filter(Boolean)
     .join("\n");
+  const notes = solution.notes
+    ? `\n\n> 💡 ${solution.notes.replace(/\n/g, "\n> ")}`
+    : "";
+  return `### ${heading}
+
+[\`${file}\`](./${file})${rows ? `\n\n${rows}` : ""}${notes}`;
+}).join("\n\n")}`;
 
   return `# [${numPrefix}${cleanTitle}](${problem.url})
 
@@ -127,13 +178,7 @@ ${problem.description || "_Problem statement was not available in the page paylo
 
 ---
 
-## Solution
-
-[\`${solution}\`](./${solution})
-
-## Notes
-
-${notesSection}
+${solutionsSection}
 `;
 }
 

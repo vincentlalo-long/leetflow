@@ -10,6 +10,7 @@ A browser extension that syncs accepted LeetCode solutions to a GitHub repositor
 - **One commit per sync**: solution file, problem README, and root index are pushed in a single commit through the GitHub Git Data API.
 - **Resilient sync**: rate limits, moved branches, and transient GitHub errors are retried with backoff; failed jobs stay in the queue until they succeed.
 - **Quick notes prompt**: Optional toast prompt when a submission is accepted to jot down key insights or tricks.
+- **Multi-Approach**: Label each submission's approach (e.g. Brute Force, HashMap) in the notes prompt — every approach is archived as its own file (`two-sum-hashmap.cpp`) and listed in the problem README instead of overwriting the previous one.
 - **Solve telemetry**: Records elapsed time and submission attempts (WA/TLE/AC) for each problem.
 - **Review queue**: Spaced repetition review scheduling in the extension popup with Again, Hard, Good, and Easy grades.
 - **Roadmap tracking**: Basic progress tracking for Blind 75 and NeetCode 150 problem lists.

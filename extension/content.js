@@ -470,6 +470,12 @@ function showNotePrompt(problem) {
     <div class="leetflow-body">
       <textarea id="leetflow-note-input" placeholder="Aha! moment, key trick, or mistake to remember..."></textarea>
       <div class="leetflow-complexity">
+        <label class="leetflow-cx-field leetflow-approach-field">
+          <span>Approach</span>
+          <input id="leetflow-approach-input" type="text" placeholder="e.g. Brute Force / HashMap (optional)" autocomplete="off">
+        </label>
+      </div>
+      <div class="leetflow-complexity">
         <label class="leetflow-cx-field">
           <span>Time</span>
           <input id="leetflow-time-input" type="text" list="leetflow-cx-list" placeholder="O(N)" autocomplete="off">
@@ -505,6 +511,7 @@ function showNotePrompt(problem) {
   `);
 
   const textarea = toast.querySelector("#leetflow-note-input");
+  const approachInput = toast.querySelector("#leetflow-approach-input");
   const timeInput = toast.querySelector("#leetflow-time-input");
   const spaceInput = toast.querySelector("#leetflow-space-input");
   let activeComplexityField = timeInput;
@@ -526,6 +533,7 @@ function showNotePrompt(problem) {
 
   const handleSync = (note) => {
     problem.notes = (note || "").trim();
+    problem.approach = (approachInput?.value || "").trim();
     problem.timeComplexity = (timeInput?.value || "").trim();
     problem.spaceComplexity = (spaceInput?.value || "").trim();
     setHtml(toast, `<div class="leetflow-header"><span class="leetflow-title">🚀 Syncing to GitHub...</span></div>`);

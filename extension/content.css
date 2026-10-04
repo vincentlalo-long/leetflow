@@ -96,6 +96,14 @@
   margin-top: 8px;
 }
 
+.leetflow-approach-field span {
+  min-width: auto;
+}
+
+.leetflow-approach-field input {
+  flex: 1;
+}
+
 .leetflow-cx-field {
   flex: 1;
   display: flex;

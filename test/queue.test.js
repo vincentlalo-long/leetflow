@@ -198,3 +198,61 @@ test("a repository failure is surfaced and keeps the job retryable", async () =>
   assert.equal(state.queue[0].status, "failed");
   assert.match(state.lastError, /Resource not accessible/);
 });
+
+test("a second approach is stored alongside the first and synced as its own file", async () => {
+  const { git } = setup();
+
+  await enqueue(solution());
+  const response = await enqueue(
+    solution({ approach: "HashMap", code: "def twoSum(nums, target):\n    seen = {}" })
+  );
+
+  assert.equal(response.status, "queued-update");
+  assert.equal(response.syncResult.synced, 1);
+
+  const files = git.files();
+  assert.ok(files.includes("LeetCode/0001-two-sum/two-sum.py"), "default file keeps its name");
+  assert.ok(files.includes("LeetCode/0001-two-sum/two-sum-hashmap.py"), "labeled approach gets a suffix");
+
+  const readme = git.read("LeetCode/0001-two-sum/README.md");
+  assert.match(readme, /## Solutions/);
+  assert.match(readme, /### HashMap/);
+  assert.match(readme, /\[`two-sum-hashmap\.py`\]\(\.\/two-sum-hashmap\.py\)/);
+
+  const state = await loadState();
+  const record = state.problems["1:Python3"];
+  assert.equal(record.solutions.length, 2);
+  assert.equal(record.solutions[0].approach, "");
+  assert.equal(record.solutions[1].approach, "HashMap");
+  assert.ok(record.review, "the review schedule stays attached to the shared record");
+});
+
+test("re-syncing the same approach updates it instead of adding a duplicate", async () => {
+  const { git } = setup();
+
+  await enqueue(solution({ approach: "Brute Force", code: "brute v1" }));
+  const response = await enqueue(solution({ approach: "brute-force", code: "brute v2" }));
+
+  assert.equal(response.status, "queued-update");
+
+  const state = await loadState();
+  const record = state.problems["1:Python3"];
+  assert.equal(record.solutions.length, 1, "labels that slugify the same are one approach");
+  assert.equal(record.solutions[0].approach, "brute-force");
+  assert.equal(record.solutions[0].code, "brute v2");
+  assert.equal(
+    git.read("LeetCode/0001-two-sum/two-sum-brute-force.py"),
+    "brute v2"
+  );
+});
+
+test("an unchanged second approach is reported as unchanged", async () => {
+  setup();
+
+  await enqueue(solution());
+  await enqueue(solution({ approach: "HashMap", code: "def twoSum(): return {}" }));
+  const repeated = await enqueue(solution({ approach: "HashMap", code: "def twoSum(): return {}" }));
+
+  assert.equal(repeated.status, "unchanged");
+  assert.ok(!repeated.syncResult);
+});

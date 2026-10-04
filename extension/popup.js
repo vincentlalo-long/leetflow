@@ -192,19 +192,37 @@ function exportToAnki(problems) {
     return;
   }
 
-  const rows = problems.map((problem) => {
-    const front = `<h2>${escapeHtml(problem.number)}. ${escapeHtml(problem.title)}</h2><p><b>Difficulty:</b> ${escapeHtml(problem.difficulty)}</p><p><b>Tags:</b> ${escapeHtml((problem.tags || []).join(", ") || "None")}</p><p><a href="${escapeHtml(problem.url)}">LeetCode Link</a></p>`;
-    const notesHtml = problem.notes
-      ? `<div style="background:#eef;padding:8px;border-radius:4px;"><b>Insight / Notes:</b><br>${escapeHtml(problem.notes).replace(/\n/g, "<br>")}</div>`
-      : "";
-    const complexityParts = [];
-    if (problem.timeComplexity) complexityParts.push(`<b>Time:</b> ${escapeHtml(problem.timeComplexity)}`);
-    if (problem.spaceComplexity) complexityParts.push(`<b>Space:</b> ${escapeHtml(problem.spaceComplexity)}`);
-    const complexityHtml = complexityParts.length
-      ? `<div style="background:#eaf6ea;padding:8px;border-radius:4px;margin-bottom:8px;"><b>Complexity:</b> ${complexityParts.join(" · ")}</div>`
-      : "";
-    const back = `${complexityHtml}${notesHtml}<h3>Solution (${escapeHtml(problem.language)})</h3><pre style="background:#f4f4f4;padding:8px;border-radius:4px;overflow-x:auto;"><code>${escapeHtml(problem.code || "No code")}</code></pre><p><small>Time spent: ${escapeHtml(problem.timeSpent || "N/A")} · Attempts: ${escapeHtml(problem.attemptsSummary || "Clean AC")}</small></p>`;
-    return `${front.replace(/\t/g, " ").replace(/\r?\n/g, "")}\t${back.replace(/\t/g, " ").replace(/\r?\n/g, "")}`;
+  const rows = problems.flatMap((problem) => {
+    const solutions =
+      Array.isArray(problem.solutions) && problem.solutions.length
+        ? problem.solutions
+        : [
+            {
+              approach: "",
+              code: problem.code,
+              notes: problem.notes,
+              timeComplexity: problem.timeComplexity,
+              spaceComplexity: problem.spaceComplexity
+            }
+          ];
+
+    return solutions.map((solution) => {
+      const approachHtml = solution.approach
+        ? `<p><b>Approach:</b> ${escapeHtml(solution.approach)}</p>`
+        : "";
+      const front = `<h2>${escapeHtml(problem.number)}. ${escapeHtml(problem.title)}</h2>${approachHtml}<p><b>Difficulty:</b> ${escapeHtml(problem.difficulty)}</p><p><b>Tags:</b> ${escapeHtml((problem.tags || []).join(", ") || "None")}</p><p><a href="${escapeHtml(problem.url)}">LeetCode Link</a></p>`;
+      const notesHtml = solution.notes
+        ? `<div style="background:#eef;padding:8px;border-radius:4px;"><b>Insight / Notes:</b><br>${escapeHtml(solution.notes).replace(/\n/g, "<br>")}</div>`
+        : "";
+      const complexityParts = [];
+      if (solution.timeComplexity) complexityParts.push(`<b>Time:</b> ${escapeHtml(solution.timeComplexity)}`);
+      if (solution.spaceComplexity) complexityParts.push(`<b>Space:</b> ${escapeHtml(solution.spaceComplexity)}`);
+      const complexityHtml = complexityParts.length
+        ? `<div style="background:#eaf6ea;padding:8px;border-radius:4px;margin-bottom:8px;"><b>Complexity:</b> ${complexityParts.join(" · ")}</div>`
+        : "";
+      const back = `${complexityHtml}${notesHtml}<h3>Solution (${escapeHtml(problem.language)})</h3><pre style="background:#f4f4f4;padding:8px;border-radius:4px;overflow-x:auto;"><code>${escapeHtml(solution.code || "No code")}</code></pre><p><small>Time spent: ${escapeHtml(problem.timeSpent || "N/A")} · Attempts: ${escapeHtml(problem.attemptsSummary || "Clean AC")}</small></p>`;
+      return `${front.replace(/\t/g, " ").replace(/\r?\n/g, "")}\t${back.replace(/\t/g, " ").replace(/\r?\n/g, "")}`;
+    });
   });
 
   const blob = new Blob([rows.join("\n")], { type: "text/tab-separated-values;charset=utf-8" });

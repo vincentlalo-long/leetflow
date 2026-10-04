@@ -7,7 +7,8 @@ import {
   renderProblemReadme,
   renderRootReadme,
   ROOT_END,
-  ROOT_START
+  ROOT_START,
+  solutionFiles
 } from "../extension/templates.js";
 
 const settings = { rootDir: "LeetCode" };
@@ -102,6 +103,53 @@ test("problem README renders complexity only when it was recorded", () => {
     readme.indexOf("| Time Complexity") < readme.indexOf("| Status |"),
     "complexity sits with the other properties"
   );
+});
+
+test("solutionFiles keeps the legacy name for the default approach and suffixes labels", () => {
+  const files = solutionFiles(twoSum());
+  assert.deepEqual(files.map((entry) => entry.file), ["two-sum.py"]);
+
+  const multi = solutionFiles({
+    ...twoSum(),
+    solutions: [
+      { approach: "", code: "a" },
+      { approach: "Brute Force", code: "b" },
+      { approach: "brute-force", code: "c" },
+      { approach: "", code: "d" }
+    ]
+  });
+  assert.deepEqual(
+    multi.map((entry) => entry.file),
+    ["two-sum.py", "two-sum-brute-force.py", "two-sum-brute-force-v2.py", "two-sum-v2.py"],
+    "colliding slugs get unique file names"
+  );
+});
+
+test("problem README lists every approach with its own file, complexity and notes", () => {
+  const problem = {
+    ...twoSum(),
+    solutions: [
+      { approach: "", code: "class Solution: pass", notes: "", timeComplexity: "", spaceComplexity: "" },
+      {
+        approach: "HashMap",
+        code: "def twoSum(): return {}",
+        notes: "one pass with a map",
+        timeComplexity: "O(N)",
+        spaceComplexity: "O(N)"
+      }
+    ]
+  };
+
+  const readme = renderProblemReadme(problem, settings);
+  assert.match(readme, /## Solutions/);
+  assert.doesNotMatch(readme, /## Solution\n/, "multi-approach uses the new section");
+  assert.match(readme, /### Default/);
+  assert.match(readme, /\[`two-sum\.py`\]\(\.\/two-sum\.py\)/);
+  assert.match(readme, /### HashMap/);
+  assert.match(readme, /\[`two-sum-hashmap\.py`\]\(\.\/two-sum-hashmap\.py\)/);
+  assert.match(readme, /\*\*Time\*\*: `O\(N\)`/);
+  assert.match(readme, /one pass with a map/);
+  assert.doesNotMatch(readme, /\| Time Complexity \|/, "per-solution complexity leaves the table");
 });
 
 test("normalizeLanguage keeps a single shared mapping", () => {

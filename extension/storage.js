@@ -112,10 +112,41 @@ export function migrateLegacyState(raw) {
   return problems;
 }
 
+function normalizeSolution(solution) {
+  const source = solution && typeof solution === "object" ? solution : {};
+  return {
+    approach: typeof source.approach === "string" ? source.approach.trim() : "",
+    code: typeof source.code === "string" ? source.code : "",
+    notes: typeof source.notes === "string" ? source.notes : "",
+    timeComplexity: typeof source.timeComplexity === "string" ? source.timeComplexity : "",
+    spaceComplexity: typeof source.spaceComplexity === "string" ? source.spaceComplexity : "",
+    acceptedAt: typeof source.acceptedAt === "string" ? source.acceptedAt : ""
+  };
+}
+
+export function normalizeProblem(problem) {
+  if (!problem || typeof problem !== "object") return problem;
+  if (Array.isArray(problem.solutions) && problem.solutions.length) {
+    return { ...problem, solutions: problem.solutions.map(normalizeSolution) };
+  }
+  const entry = normalizeSolution(problem);
+  return {
+    ...problem,
+    solutions: [entry],
+    code: entry.code,
+    notes: entry.notes,
+    timeComplexity: entry.timeComplexity,
+    spaceComplexity: entry.spaceComplexity
+  };
+}
+
 export async function loadState() {
   const raw = (await promisifyStorage("get", DEFAULTS)) || {};
   const legacyProblems = migrateLegacyState(raw);
-  const problems = legacyProblems || raw.problems || {};
+  const source = legacyProblems || raw.problems || {};
+  const problems = Object.fromEntries(
+    Object.entries(source).map(([key, value]) => [key, normalizeProblem(value)])
+  );
 
   return {
     settings: { ...DEFAULT_SETTINGS, ...(raw.settings || {}) },

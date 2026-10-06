@@ -54,6 +54,22 @@ function formatAttempts() {
   return `${failAttempts.total + 1} (${parts.join(", ")})`;
 }
 
+const ARCHIVE_PATH = /\/submissions(\/|$)/;
+const OVERLAY_SELECTOR =
+  '[role="dialog"], [aria-modal="true"], [class*="ant-modal"], [class*="ant-drawer"]';
+
+function isArchiveView() {
+  return ARCHIVE_PATH.test(location.pathname);
+}
+
+function isVisible(node) {
+  return Boolean(node && node.getClientRects().length > 0);
+}
+
+function isInsideOverlay(node) {
+  return Boolean(node && node.closest(OVERLAY_SELECTOR));
+}
+
 function statusResultNode() {
   const statusSelectors = [
     '[data-e2e-locator="submission-result"]',
@@ -66,7 +82,12 @@ function statusResultNode() {
 
   for (const sel of statusSelectors) {
     const el = document.querySelector(sel);
-    if (el && !el.closest('[class*="discuss"], [class*="solution"], [class*="comment"]')) {
+    if (
+      el &&
+      isVisible(el) &&
+      !isInsideOverlay(el) &&
+      !el.closest('[class*="discuss"], [class*="solution"], [class*="comment"]')
+    ) {
       return el;
     }
   }
@@ -74,6 +95,7 @@ function statusResultNode() {
 }
 
 function checkSubmissionFailure() {
+  if (isArchiveView()) return;
   const el = statusResultNode();
   if (!el) return;
   const t = el.textContent.trim().toLowerCase();
@@ -140,7 +162,7 @@ function isAccepted() {
 
   for (const selector of statusSelectors) {
     const el = document.querySelector(selector);
-    if (el) {
+    if (el && isVisible(el) && !isInsideOverlay(el)) {
       const t = el.textContent.trim().toLowerCase();
       if (t.includes("accepted") || t.includes("通过")) {
         return true;
@@ -152,6 +174,7 @@ function isAccepted() {
     '[class*="submission-result"], [class*="result-container"], [data-layout-path*="console"], [class*="run-code-result"]'
   );
   for (const container of containers) {
+    if (!isVisible(container) || isInsideOverlay(container)) continue;
     if (container.closest('[class*="discuss"], [class*="solution"], [class*="comment"]')) {
       continue;
     }
@@ -683,11 +706,18 @@ function sendSolution(problem) {
 }
 
 let isSyncing = false;
+let acceptedState = null;
 
 async function syncIfAccepted() {
   checkSubmissionFailure();
+  const accepted = isAccepted();
+  const wasAccepted = acceptedState;
+  // Track every observation (even while prompting) so a stale "Accepted"
+  // console left over from an earlier run never triggers a second sync.
+  acceptedState = accepted;
   if (isPrompting || isSyncing) return;
-  if (!isAccepted()) return;
+  if (!accepted || wasAccepted === true) return;
+  if (isArchiveView()) return;
 
   isSyncing = true;
   try {

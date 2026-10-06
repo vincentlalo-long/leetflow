@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  mergeFolderRecords,
   mergeRootReadme,
   normalizeLanguage,
   problemPath,
@@ -26,6 +27,7 @@ function twoSum() {
     code: "class Solution: pass",
     description: "Given an array of integers.",
     acceptedAt: "2024-01-01T00:00:00.000Z",
+    syncedAt: "2024-01-01T00:00:00.000Z",
     timeSpent: "3m 20s",
     attemptsSummary: "1st try (Clean AC)"
   };
@@ -43,6 +45,57 @@ test("renderRootReadme skips incomplete records", () => {
   const readme = renderRootReadme([{ number: "1", language: "Go" }], settings);
   assert.doesNotMatch(readme, /Two Sum/);
   assert.match(readme, /No synced problems yet/);
+});
+
+test("renderRootReadme skips records that never reached the repository", () => {
+  const readme = renderRootReadme([{ ...twoSum(), syncedAt: "" }], settings);
+  assert.doesNotMatch(readme, /Two Sum/);
+  assert.match(readme, /No synced problems yet/);
+});
+
+test("renderRootReadme lists one row per problem across languages", () => {
+  const cpp = {
+    ...twoSum(),
+    language: "C++",
+    extension: "cpp",
+    code: "class Solution {};",
+    tags: ["Array"],
+    syncedAt: "2024-01-02T00:00:00.000Z"
+  };
+  const readme = renderRootReadme([twoSum(), cpp], settings);
+
+  const rows = readme.split("\n").filter((line) => /^\| 1 \|/.test(line));
+  assert.equal(rows.length, 1, "both languages share one index row");
+  assert.match(rows[0], /Python3, C\+\+/);
+  assert.match(readme, /### Array \(1\)/, "a shared tag is not counted twice");
+});
+
+test("mergeFolderRecords combines languages into one record", () => {
+  const cpp = {
+    ...twoSum(),
+    language: "C++",
+    extension: "cpp",
+    code: "class Solution {};",
+    tags: ["Array"],
+    syncedAt: "2024-01-02T00:00:00.000Z"
+  };
+  const merged = mergeFolderRecords([twoSum(), cpp]);
+
+  assert.equal(merged.language, "Python3, C++");
+  assert.deepEqual(merged.tags, ["Array", "Hash Table"]);
+  assert.equal(merged.solutions.length, 2);
+  assert.equal(merged.solutions[0].extension, "py");
+  assert.equal(merged.solutions[1].extension, "cpp");
+
+  const files = solutionFiles(merged);
+  assert.deepEqual(files.map((entry) => entry.file), ["two-sum.py", "two-sum.cpp"]);
+
+  const readme = renderProblemReadme(merged, settings);
+  assert.match(readme, /\| Language \| Python3, C\+\+ \|/);
+  assert.match(readme, /### Python3/);
+  assert.match(readme, /### C\+\+/);
+  assert.match(readme, /\[`two-sum\.py`\]\(\.\/two-sum\.py\)/);
+  assert.match(readme, /\[`two-sum\.cpp`\]\(\.\/two-sum\.cpp\)/);
 });
 
 test("mergeRootReadme creates a new file when the repository has none", () => {

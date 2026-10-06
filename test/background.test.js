@@ -158,3 +158,71 @@ test("the hourly badge alarm is scheduled on install", () => {
   assert.ok(scheduled, "expected the review badge alarm");
   assert.equal(scheduled.options.periodInMinutes, 60);
 });
+
+test("save-settings updates only the settings through the shared lock", async () => {
+  store.queue = [
+    { key: "1:Python3", problem: { slug: "two-sum" }, attempts: 2, status: "failed", createdAt: "2024-01-01T00:00:00.000Z" }
+  ];
+
+  const response = await dispatch({
+    type: "save-settings",
+    settings: { interviewMode: true, branch: "develop" }
+  });
+
+  assert.equal(response.ok, true);
+  assert.equal(response.settings.interviewMode, true);
+  assert.equal(response.settings.branch, "develop");
+  assert.equal(store.settings.interviewMode, true);
+  assert.equal(store.queue.length, 1, "the queue is left untouched");
+
+  delete store.queue[0];
+  store.queue = [];
+  store.settings.interviewMode = false;
+  store.settings.branch = "main";
+});
+
+test("clear-failed discards failed jobs and clears the last error", async () => {
+  store.queue = [
+    { key: "1:Python3", problem: { slug: "two-sum" }, attempts: 5, status: "failed", error: "boom" },
+    { key: "2:Python3", problem: { slug: "add-two-numbers" }, attempts: 0, status: "pending" }
+  ];
+  store.lastError = "boom";
+
+  const response = await dispatch({ type: "clear-failed" });
+
+  assert.equal(response.ok, true);
+  assert.equal(response.removed, 1);
+  assert.equal(store.queue.length, 1, "only the failed job is removed");
+  assert.equal(store.queue[0].status, "pending");
+  assert.equal(store.lastError, "");
+
+  store.queue = [];
+});
+
+test("get-solution returns the stored entry that matches a resubmission", async () => {
+  store.problems = {
+    "1:Python3": {
+      number: "1",
+      slug: "two-sum",
+      title: "Two Sum",
+      language: "Python3",
+      syncedAt: "2024-01-01T00:00:00.000Z",
+      solutions: [
+        { approach: "HashMap", code: "def twoSum(): return {}", notes: "aha", timeComplexity: "O(N)", spaceComplexity: "O(N)" }
+      ]
+    }
+  };
+
+  const match = await dispatch({ type: "get-solution", slug: "two-sum", code: "def twoSum(): return {}" });
+  assert.equal(match.ok, true);
+  assert.equal(match.solution.approach, "HashMap");
+  assert.equal(match.solution.notes, "aha");
+
+  const miss = await dispatch({ type: "get-solution", slug: "add-two-numbers", code: "x" });
+  assert.equal(miss.solution, null, "a record-less slug has nothing to prefill");
+
+  const changed = await dispatch({ type: "get-solution", slug: "two-sum", code: "improved v2" });
+  assert.equal(changed.solution.approach, "HashMap", "a lone solution still prefills");
+
+  delete store.problems["1:Python3"];
+});

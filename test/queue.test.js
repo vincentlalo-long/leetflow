@@ -9,7 +9,13 @@ import {
   registerGraphqlRoute
 } from "./helpers/mock.js";
 
-const { enqueue, resetQueueForTests } = await import("../extension/queue.js");
+const {
+  MAX_JOB_ATTEMPTS,
+  enqueue,
+  resetQueueForTests,
+  resolveProblemMetadata,
+  runQueue
+} = await import("../extension/queue.js");
 const { loadState } = await import("../extension/storage.js");
 
 function solution(overrides = {}) {
@@ -34,13 +40,13 @@ function setup(settings = {}, beforeGithubRoutes) {
   const chromeMock = installChromeMock(configureRepository(settings));
   const router = createFetchRouter();
   const repo = { commits: [] };
+  if (beforeGithubRoutes) beforeGithubRoutes(router);
   registerGraphqlRoute(router, (slug) => ({
     questionFrontendId: slug === "two-sum" ? "1" : "2",
     title: slug === "two-sum" ? "Two Sum" : "Add Two Numbers",
     difficulty: "Easy",
     topicTags: [{ name: "Array" }]
   }));
-  if (beforeGithubRoutes) beforeGithubRoutes(router);
   const git = registerGithubRoutes(router, repo, { initialHead: "head-sha" });
   resetQueueForTests();
   return { chromeMock, router, repo, git };
@@ -255,4 +261,158 @@ test("an unchanged second approach is reported as unchanged", async () => {
 
   assert.equal(repeated.status, "unchanged");
   assert.ok(!repeated.syncResult);
+});
+
+test("an unlabeled resubmission of a labeled approach does not duplicate it", async () => {
+  const { git } = setup();
+
+  await enqueue(solution({ approach: "HashMap", code: "def twoSum(): return {}" }));
+  const again = await enqueue(solution({ approach: "", code: "def twoSum(): return {}" }));
+
+  assert.equal(again.status, "unchanged");
+  const state = await loadState();
+  const record = state.problems["1:Python3"];
+  assert.equal(record.solutions.length, 1, "no unlabeled duplicate is pushed");
+  assert.equal(record.solutions[0].approach, "HashMap");
+  assert.ok(!git.files().includes("LeetCode/0001-two-sum/two-sum.py"));
+});
+
+test("resubmitting without notes keeps the stored notes and complexity", async () => {
+  const { git } = setup();
+
+  await enqueue(
+    solution({ notes: "aha", timeComplexity: "O(N)", spaceComplexity: "O(1)" })
+  );
+  const again = await enqueue(solution());
+
+  assert.equal(again.status, "unchanged", "empty prompts are treated as no change");
+
+  const state = await loadState();
+  const record = state.problems["1:Python3"];
+  assert.equal(record.notes, "aha");
+  assert.equal(record.timeComplexity, "O(N)");
+  assert.match(git.read("LeetCode/0001-two-sum/README.md"), /aha/);
+});
+
+test("a rate limited drain schedules one retry at the reset time", async () => {
+  const { chromeMock } = setup({}, (target) => {
+    target.route("POST", /\/git\/trees$/, () => ({
+      status: 403,
+      body: { message: "API rate limit exceeded" },
+      headers: {
+        "x-ratelimit-remaining": "0",
+        "x-ratelimit-reset": String(Math.ceil(Date.now() / 1000) + 1800)
+      }
+    }));
+  });
+
+  const response = await enqueue(solution());
+
+  assert.equal(response.syncResult.rateLimited, true);
+  const queueAlarms = chromeMock.alarms.filter(
+    (alarm) => alarm.name === "leetflow-sync-queue"
+  );
+  assert.equal(queueAlarms.length, 1, "the backoff is not overwritten by a 1 minute alarm");
+  assert.ok(
+    queueAlarms[0].options.delayInMinutes >= 25,
+    `expected the reset window, got ${queueAlarms[0].options.delayInMinutes}`
+  );
+});
+
+test("a permanently failing job stops retrying after the attempt cap", async () => {
+  const { chromeMock, router } = setup({}, (target) => {
+    target.route("POST", /\/git\/trees$/, () => ({
+      status: 403,
+      body: { message: "Resource not accessible by personal access token" }
+    }));
+  });
+
+  const first = await enqueue(solution());
+  assert.equal(first.syncResult.failed, 1);
+
+  const delays = [];
+  for (let attempt = 1; attempt < MAX_JOB_ATTEMPTS; attempt++) {
+    chromeMock.alarms.length = 0;
+    await runQueue();
+    const alarm = chromeMock.alarms.find((item) => item.name === "leetflow-sync-queue");
+    delays.push(alarm?.options?.delayInMinutes);
+  }
+
+  assert.deepEqual(delays, [2, 4, 8, undefined], "each retry backs off, the last one stops");
+
+  const state = await loadState();
+  assert.equal(state.queue.length, 1);
+  assert.equal(state.queue[0].status, "failed");
+  assert.equal(state.queue[0].attempts, MAX_JOB_ATTEMPTS);
+
+  chromeMock.alarms.length = 0;
+  const exhausted = await runQueue();
+  const stateAfter = await loadState();
+  assert.equal(stateAfter.queue[0].attempts, MAX_JOB_ATTEMPTS, "no further attempts");
+  assert.equal(
+    chromeMock.alarms.filter((item) => item.name === "leetflow-sync-queue").length,
+    0,
+    "an exhausted queue schedules no more retries"
+  );
+  assert.equal(exhausted.ok, true, "an empty eligible queue is not an error");
+
+  assert.ok(
+    router.calls.filter((call) => call.pathname.endsWith("/git/trees")).length >= 1
+  );
+});
+
+test("a problem whose number resolves during drain leaves no placeholder record", async () => {
+  let graphqlCalls = 0;
+  const { git } = setup({}, (target) => {
+    target.route("POST", /\/graphql$/, () => {
+      graphqlCalls += 1;
+      if (graphqlCalls === 1) return { status: 500, body: { message: "temporary" } };
+      return {
+        status: 200,
+        body: {
+          data: {
+            question: {
+              questionFrontendId: "1",
+              title: "Two Sum",
+              difficulty: "Easy",
+              topicTags: [{ name: "Array" }]
+            }
+          }
+        }
+      };
+    });
+  });
+
+  const response = await enqueue(solution());
+  assert.equal(response.key, ":Python3", "the number was unknown at enqueue time");
+
+  const state = await loadState();
+  assert.ok(state.problems["1:Python3"], "the record moved to the resolved key");
+  assert.equal(state.problems[":Python3"], undefined, "the placeholder is gone");
+  assert.equal(state.queue.length, 0);
+  assert.ok(git.read("LeetCode/0001-two-sum/README.md").includes("Two Sum"));
+});
+
+test("syncing a second language keeps one folder, one README and one index row", async () => {
+  const { git } = setup();
+
+  await enqueue(solution());
+  await enqueue(
+    solution({ language: "cpp", code: "class Solution { public: vector<int> twoSum(vector<int>& n, int t) { return {}; } };" })
+  );
+
+  const files = git.files();
+  assert.ok(files.includes("LeetCode/0001-two-sum/two-sum.py"));
+  assert.ok(files.includes("LeetCode/0001-two-sum/two-sum.cpp"));
+
+  const readme = git.read("LeetCode/0001-two-sum/README.md");
+  assert.match(readme, /\[`two-sum\.py`\]\(\.\/two-sum\.py\)/);
+  assert.match(readme, /\[`two-sum\.cpp`\]\(\.\/two-sum\.cpp\)/);
+  assert.match(readme, /### Python3/);
+  assert.match(readme, /### C\+\+/);
+
+  const root = git.read("LeetCode/README.md");
+  const rows = root.split("\n").filter((line) => /^\| 1 \|/.test(line));
+  assert.equal(rows.length, 1, "the index does not list the same problem twice");
+  assert.match(rows[0], /Python3, C\+\+/);
 });

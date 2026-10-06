@@ -1,4 +1,4 @@
-import { loadState, saveState } from "./storage.js";
+import { loadState } from "./storage.js";
 import { checkRepository } from "./github.js";
 
 const fields = [
@@ -56,8 +56,10 @@ async function save() {
     settings[field] = node.type === "checkbox" ? node.checked : node.value.trim();
   }
 
-  const state = await loadState();
-  await saveState({ ...state, settings });
+  const saved = await send("save-settings", { settings });
+  if (!saved.ok) {
+    throw new Error(saved.error || "Could not save the settings.");
+  }
   setMessage("Settings saved.", "ok");
 
   if (!(settings.githubToken && settings.owner && settings.repo)) {

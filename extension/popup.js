@@ -1,5 +1,4 @@
 import { getRoadmapProgress } from "./roadmaps.js";
-import { loadState, saveState } from "./storage.js";
 
 function send(type, payload = {}) {
   return new Promise((resolve) => {
@@ -93,6 +92,19 @@ async function refresh() {
     notes.push(`<div class="note error">⚠️ ${escapeHtml(state.lastError)}</div>`);
   }
 
+  const clearFailedButton = document.querySelector("#clearFailed");
+  clearFailedButton.hidden = failed.length === 0;
+  clearFailedButton.onclick = async () => {
+    clearFailedButton.disabled = true;
+    const response = await send("clear-failed");
+    if (!response.ok) {
+      showFeedback(`⚠️ Could not discard — ${response.error || "unknown error"}`, "error");
+    } else {
+      showFeedback(`🗑 Discarded ${response.removed} failed job(s).`);
+    }
+    await refresh().catch(() => {});
+  };
+
   setHtml(document.querySelector("#summary"), `
     <div class="row"><span>Pending</span><strong>${pending}</strong></div>
     <div class="row"><span>Failed</span><strong class="${failed.length ? "failed" : ""}">${failed.length}</strong></div>
@@ -179,9 +191,14 @@ async function refresh() {
   const interviewCheckbox = document.querySelector("#interviewMode");
   interviewCheckbox.checked = Boolean(state.settings.interviewMode);
   interviewCheckbox.onchange = async () => {
-    const current = await loadState();
-    current.settings.interviewMode = interviewCheckbox.checked;
-    await saveState(current);
+    const response = await send("save-settings", {
+      settings: { ...state.settings, interviewMode: interviewCheckbox.checked }
+    });
+    if (!response.ok) {
+      showFeedback(`⚠️ Could not save — ${response.error || "unknown error"}`, "error");
+      interviewCheckbox.checked = Boolean(state.settings.interviewMode);
+      return;
+    }
     await refresh();
   };
 }
@@ -220,8 +237,14 @@ function exportToAnki(problems) {
       const complexityHtml = complexityParts.length
         ? `<div style="background:#eaf6ea;padding:8px;border-radius:4px;margin-bottom:8px;"><b>Complexity:</b> ${complexityParts.join(" · ")}</div>`
         : "";
-      const back = `${complexityHtml}${notesHtml}<h3>Solution (${escapeHtml(problem.language)})</h3><pre style="background:#f4f4f4;padding:8px;border-radius:4px;overflow-x:auto;"><code>${escapeHtml(solution.code || "No code")}</code></pre><p><small>Time spent: ${escapeHtml(problem.timeSpent || "N/A")} · Attempts: ${escapeHtml(problem.attemptsSummary || "Clean AC")}</small></p>`;
-      return `${front.replace(/\t/g, " ").replace(/\r?\n/g, "")}\t${back.replace(/\t/g, " ").replace(/\r?\n/g, "")}`;
+      // Keep the code readable inside <pre>: tabs become spaces and newlines
+      // become <br> before the field is flattened into a single TSV line.
+      const codeHtml = escapeHtml(solution.code || "No code")
+        .replace(/\t/g, "    ")
+        .replace(/\r?\n/g, "<br>");
+      const back = `${complexityHtml}${notesHtml}<h3>Solution (${escapeHtml(problem.language)})</h3><pre style="background:#f4f4f4;padding:8px;border-radius:4px;overflow-x:auto;"><code>${codeHtml}</code></pre><p><small>Time spent: ${escapeHtml(problem.timeSpent || "N/A")} · Attempts: ${escapeHtml(problem.attemptsSummary || "Clean AC")}</small></p>`;
+      const flatten = (html) => String(html).replace(/\t/g, " ").replace(/\r?\n/g, "");
+      return `${flatten(front)}\t${flatten(back)}`;
     });
   });
 

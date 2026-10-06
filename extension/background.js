@@ -1,11 +1,15 @@
 import { loadState } from "./storage.js";
 import {
   QUEUE_ALARM,
+  clearFailedJobs,
   enqueue,
+  findSolutionFor,
   getReviewState,
   gradeReviewJob,
   restoreReviewJobs,
+  retryQueue,
   runQueue,
+  saveSettings,
   skipReviewJob
 } from "./queue.js";
 
@@ -55,7 +59,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     case "accepted-solution":
       return respond(sendResponse, withBadge(enqueue(message.problem)));
     case "retry-queue":
-      return respond(sendResponse, withBadge(runQueue()));
+      return respond(sendResponse, withBadge(retryQueue()));
+    case "clear-failed":
+      return respond(sendResponse, clearFailedJobs());
+    case "save-settings":
+      return respond(sendResponse, saveSettings(message.settings));
+    case "get-solution":
+      return respond(sendResponse, findSolutionFor(message));
     case "get-state":
       return respond(sendResponse, loadState().then((state) => ({ state })));
     case "get-review":

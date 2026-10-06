@@ -85,7 +85,6 @@ export function problemPath(problem, settings) {
 }
 
 export function solutionFiles(problem) {
-  const extension = problem.extension || normalizeLanguage(problem.language).ext || "txt";
   const base = slugify(problem.slug || problem.title);
   const solutions =
     Array.isArray(problem.solutions) && problem.solutions.length
@@ -94,6 +93,8 @@ export function solutionFiles(problem) {
 
   const used = new Set();
   return solutions.map((solution) => {
+    const extension =
+      solution.extension || problem.extension || normalizeLanguage(problem.language).ext || "txt";
     const label = slugify(solution.approach);
     const stem = label ? `${base}-${label}` : base;
     let file = `${stem}.${extension}`;
@@ -105,6 +106,38 @@ export function solutionFiles(problem) {
     used.add(file);
     return { solution, file };
   });
+}
+
+export function mergeFolderRecords(records) {
+  const list = (records || []).filter((record) => record && (record.title || record.slug));
+  if (list.length <= 1) return list[0] || null;
+
+  const primary = [...list].sort((a, b) =>
+    String(b.syncedAt || b.acceptedAt || "").localeCompare(String(a.syncedAt || a.acceptedAt || ""))
+  )[0];
+  const languages = [...new Set(list.map((record) => record.language).filter(Boolean))];
+  const tags = [...new Set(list.flatMap((record) => record.tags || []))];
+  const solutions = list.flatMap((record) => {
+    const own =
+      Array.isArray(record.solutions) && record.solutions.length
+        ? record.solutions
+        : [
+            {
+              approach: "",
+              code: record.code || "",
+              notes: record.notes || "",
+              timeComplexity: record.timeComplexity || "",
+              spaceComplexity: record.spaceComplexity || ""
+            }
+          ];
+    return own.map((solution) => ({
+      ...solution,
+      language: solution.language || record.language,
+      extension: solution.extension || record.extension || normalizeLanguage(record.language).ext
+    }));
+  });
+
+  return { ...primary, language: languages.join(", "), tags, solutions };
 }
 
 export function renderProblemReadme(problem, settings) {
@@ -141,7 +174,10 @@ ${notesSection}`
     : `## Solutions
 
 ${entries.map(({ solution, file }) => {
-  const heading = String(solution.approach || "").replace(/\n/g, " ").trim() || "Default";
+  const heading =
+    String(solution.approach || "").replace(/\n/g, " ").trim() ||
+    String(solution.language || "").replace(/\n/g, " ").trim() ||
+    "Default";
   const rows = [
     solution.timeComplexity ? `- **Time**: \`${escapeCell(solution.timeComplexity)}\`` : "",
     solution.spaceComplexity ? `- **Space**: \`${escapeCell(solution.spaceComplexity)}\`` : ""
@@ -183,9 +219,20 @@ ${solutionsSection}
 }
 
 export function renderRootReadme(problems, settings) {
-  const usable = (problems || []).filter((problem) => problem && (problem.title || problem.slug));
-  const groups = new Map();
+  const usable = (problems || []).filter(
+    (problem) => problem && (problem.title || problem.slug) && problem.syncedAt
+  );
+  const folders = new Map();
   for (const problem of usable) {
+    const folder = problemFolder(problem);
+    if (!folders.has(folder)) folders.set(folder, []);
+    folders.get(folder).push(problem);
+  }
+  const tracked = [...folders.values()]
+    .map((records) => mergeFolderRecords(records))
+    .filter(Boolean);
+  const groups = new Map();
+  for (const problem of tracked) {
     for (const tag of problem.tags || []) {
       const key = tag.toLowerCase();
       if (!groups.has(key)) groups.set(key, { name: tag, problems: [] });
@@ -193,7 +240,7 @@ export function renderRootReadme(problems, settings) {
     }
   }
   const tags = [...groups.values()].sort((a, b) => a.name.localeCompare(b.name));
-  const rows = [...usable].sort((a, b) => Number(a.number || 0) - Number(b.number || 0))
+  const rows = [...tracked].sort((a, b) => Number(a.number || 0) - Number(b.number || 0))
     .map((p) => {
       const folder = problemFolder(p);
       const cleanTitle = String(p.title || "").replace(/^\d+\.\s*/, "").trim();

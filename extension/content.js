@@ -1,8 +1,21 @@
 let lastKey = "";
-const sessionStartTime = Date.now();
-const failAttempts = { wa: 0, tle: 0, re: 0, mle: 0, total: 0 };
+let sessionStartTime = Date.now();
+let failAttempts = { wa: 0, tle: 0, re: 0, mle: 0, total: 0 };
 let lastFailureKey = "";
 let isPrompting = false;
+
+function resetSessionStats() {
+  sessionStartTime = Date.now();
+  failAttempts = { wa: 0, tle: 0, re: 0, mle: 0, total: 0 };
+  lastFailureKey = "";
+}
+
+function normalizeNumber(value) {
+  const raw = String(value ?? "").trim();
+  if (/^\d+$/.test(raw)) return raw;
+  const leading = raw.match(/^\d+/);
+  return leading ? leading[0] : "";
+}
 
 function injectInpageScript() {
   if (document.getElementById("leetflow-inpage-script")) return;
@@ -41,7 +54,7 @@ function formatAttempts() {
   return `${failAttempts.total + 1} (${parts.join(", ")})`;
 }
 
-function checkSubmissionFailure() {
+function statusResultNode() {
   const statusSelectors = [
     '[data-e2e-locator="submission-result"]',
     '[data-cypress="SubmissionResult"]',
@@ -53,24 +66,40 @@ function checkSubmissionFailure() {
 
   for (const sel of statusSelectors) {
     const el = document.querySelector(sel);
-    if (el) {
-      if (el.closest('[class*="discuss"], [class*="solution"], [class*="comment"]')) continue;
-      const t = el.textContent.trim().toLowerCase();
-      let type = "";
-      if (t.includes("wrong answer") || t.includes("解答错误")) type = "wa";
-      else if (t.includes("time limit") || t.includes("超出时间限制")) type = "tle";
-      else if (t.includes("runtime error") || t.includes("执行出错")) type = "re";
-      else if (t.includes("memory limit") || t.includes("超出内存限制")) type = "mle";
-
-      if (type) {
-        const failKey = `${type}:${el.textContent.slice(0, 30)}`;
-        if (failKey !== lastFailureKey) {
-          lastFailureKey = failKey;
-          failAttempts[type]++;
-          failAttempts.total++;
-        }
-      }
+    if (el && !el.closest('[class*="discuss"], [class*="solution"], [class*="comment"]')) {
+      return el;
     }
+  }
+  return null;
+}
+
+function checkSubmissionFailure() {
+  const el = statusResultNode();
+  if (!el) return;
+  const t = el.textContent.trim().toLowerCase();
+  let type = "";
+  if (t.includes("wrong answer") || t.includes("解答错误")) type = "wa";
+  else if (t.includes("time limit") || t.includes("超出时间限制")) type = "tle";
+  else if (t.includes("runtime error") || t.includes("执行出错")) type = "re";
+  else if (t.includes("memory limit") || t.includes("超出内存限制")) type = "mle";
+
+  if (type) {
+    const failKey = `${type}:${el.textContent.slice(0, 30)}`;
+    if (failKey !== lastFailureKey) {
+      lastFailureKey = failKey;
+      failAttempts[type]++;
+      failAttempts.total++;
+    }
+    return;
+  }
+
+  // A finished or in-flight submission means the next failure is a new attempt,
+  // even when its message text matches the previous one.
+  if (
+    isAccepted() ||
+    (el && /pending|judging|running|compiling|waiting|待判|判题|评测中/.test(t))
+  ) {
+    lastFailureKey = "";
   }
 }
 
@@ -199,7 +228,7 @@ function extractFromDOM(slug) {
       const q = findQuestion(data);
       if (q?.questionFrontendId) {
         return {
-          number: String(parseInt(q.questionFrontendId, 10)),
+          number: normalizeNumber(q.questionFrontendId),
           title: q.title || "",
           difficulty: q.difficulty || "",
           tags: q.topicTags?.map((t) => t.name) || []
@@ -272,7 +301,7 @@ async function loadProblemMetadata(slug) {
   const gqlData = await fetchGraphQLProblem(slug);
   if (gqlData) {
     const num = gqlData.questionFrontendId
-      ? String(parseInt(gqlData.questionFrontendId, 10))
+      ? normalizeNumber(gqlData.questionFrontendId)
       : (problemCache[slug]?.number || "");
 
     problemCache[slug] = {
@@ -291,6 +320,7 @@ let lastSeenSlug = "";
 function checkSlugChange() {
   const slug = getSlug();
   if (slug && slug !== lastSeenSlug) {
+    if (lastSeenSlug) resetSessionStats();
     lastSeenSlug = slug;
     loadProblemMetadata(slug);
   }
@@ -455,7 +485,23 @@ function showUnconfiguredNotice() {
   });
 }
 
-function showNotePrompt(problem) {
+function requestExistingSolution(slug, code) {
+  return new Promise((resolve) => {
+    try {
+      chrome.runtime.sendMessage({ type: "get-solution", slug, code }, (response) => {
+        if (chrome.runtime.lastError) {
+          resolve(null);
+          return;
+        }
+        resolve(response?.solution || null);
+      });
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+function showNotePrompt(problem, previous) {
   isPrompting = true;
 
   const toast = showToast(`
@@ -515,6 +561,12 @@ function showNotePrompt(problem) {
   const timeInput = toast.querySelector("#leetflow-time-input");
   const spaceInput = toast.querySelector("#leetflow-space-input");
   let activeComplexityField = timeInput;
+  if (previous) {
+    if (previous.notes) textarea.value = previous.notes;
+    if (previous.approach) approachInput.value = previous.approach;
+    if (previous.timeComplexity) timeInput.value = previous.timeComplexity;
+    if (previous.spaceComplexity) spaceInput.value = previous.spaceComplexity;
+  }
   textarea.focus();
 
   [timeInput, spaceInput].forEach((input) =>
@@ -664,7 +716,8 @@ async function syncIfAccepted() {
     }
 
     if (shouldPrompt) {
-      showNotePrompt(problem);
+      const previous = await requestExistingSolution(problem.slug, problem.code);
+      showNotePrompt(problem, previous);
       isSyncing = false;
       return;
     }

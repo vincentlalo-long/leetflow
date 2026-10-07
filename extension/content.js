@@ -70,6 +70,43 @@ function isInsideOverlay(node) {
   return Boolean(node && node.closest(OVERLAY_SELECTOR));
 }
 
+// A "Run" result says Accepted too, but it is not a submission. Only treat
+// results as real when a submit action just happened or LeetCode rendered
+// the submission-specific result node.
+const SUBMIT_WINDOW_MS = 3 * 60 * 1000;
+let lastSubmitRequest = 0;
+
+document.addEventListener(
+  "click",
+  (event) => {
+    const control = event.target?.closest?.(
+      'button, [role="button"], [class*="submit"], [data-e2e-locator*="submit"]'
+    );
+    if (!control) return;
+    const label = String(control.textContent || control.getAttribute?.("aria-label") || "").trim();
+    if (/^(submit|提交|递交|submit\s*code)\b/i.test(label)) lastSubmitRequest = Date.now();
+  },
+  true
+);
+
+document.addEventListener(
+  "keydown",
+  (event) => {
+    if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+      lastSubmitRequest = Date.now();
+    }
+  },
+  true
+);
+
+function hasSubmissionEvidence() {
+  if (Date.now() - lastSubmitRequest < SUBMIT_WINDOW_MS) return true;
+  const locator = document.querySelector(
+    '[data-e2e-locator="submission-result"], [data-cypress="SubmissionResult"]'
+  );
+  return Boolean(locator && isVisible(locator) && !isInsideOverlay(locator));
+}
+
 function statusResultNode() {
   const statusSelectors = [
     '[data-e2e-locator="submission-result"]',
@@ -95,7 +132,7 @@ function statusResultNode() {
 }
 
 function checkSubmissionFailure() {
-  if (isArchiveView()) return;
+  if (isArchiveView() || !hasSubmissionEvidence()) return;
   const el = statusResultNode();
   if (!el) return;
   const t = el.textContent.trim().toLowerCase();
@@ -717,7 +754,7 @@ async function syncIfAccepted() {
   acceptedState = accepted;
   if (isPrompting || isSyncing) return;
   if (!accepted || wasAccepted === true) return;
-  if (isArchiveView()) return;
+  if (isArchiveView() || !hasSubmissionEvidence()) return;
 
   isSyncing = true;
   try {

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "LeetFlow Sync",
-  "version": "0.8.1",
+  "version": "0.8.2",
   "description": "Sync accepted LeetCode solutions to a GitHub repository and keep a review-friendly archive.",
   "permissions": ["storage", "alarms", "unlimitedStorage"],
   "host_permissions": [

@@ -74,10 +74,37 @@ function isInsideOverlay(node) {
 // results as real when a submit action just happened or LeetCode rendered
 // the submission-specific result node.
 const SUBMIT_WINDOW_MS = 10 * 60 * 1000;
-let lastSubmitRequest = 0;
+const SUBMIT_STORAGE_KEY = "leetflow:lastSubmit";
+
+function readStoredSubmitTime() {
+  try {
+    const value = Number(sessionStorage.getItem(SUBMIT_STORAGE_KEY));
+    if (Number.isFinite(value) && value > 0) return value;
+  } catch {
+    /* sessionStorage unavailable (e.g. restricted context) */
+  }
+  return 0;
+}
+
+// In-memory timestamp, seeded from sessionStorage so a fresh submit still
+// counts as fresh after a navigation/reload wipes the script state.
+let lastSubmitRequest = readStoredSubmitTime();
+
+function lastSubmitTime() {
+  return Math.max(lastSubmitRequest, readStoredSubmitTime());
+}
+
+function hasFreshSubmit() {
+  return Date.now() - lastSubmitTime() < SUBMIT_WINDOW_MS;
+}
 
 function markNewSubmission() {
   lastSubmitRequest = Date.now();
+  try {
+    sessionStorage.setItem(SUBMIT_STORAGE_KEY, String(lastSubmitRequest));
+  } catch {
+    /* non-fatal — the in-memory timestamp still works within this page */
+  }
   // The old "Accepted" banner can stay visible while the new submission is
   // judging, so forget the previous accept — otherwise the false→true
   // transition in syncIfAccepted never fires and no toast appears.
@@ -114,7 +141,7 @@ document.addEventListener(
 );
 
 function hasSubmissionEvidence() {
-  if (Date.now() - lastSubmitRequest < SUBMIT_WINDOW_MS) return true;
+  if (hasFreshSubmit()) return true;
   const locator = document.querySelector(
     '[data-e2e-locator="submission-result"], [data-cypress="SubmissionResult"]'
   );
@@ -773,8 +800,12 @@ async function syncIfAccepted() {
   }
   if (isPrompting || isSyncing) return;
   if (!accepted || wasAccepted === true) return;
-  if (isArchiveView()) {
-    console.info("[LeetFlow] Accepted ignored: submission archive views are not synced.");
+  // Submission detail pages (/problems/<slug>/submissions/...) are archive
+  // views when you're just browsing old results — but they also host YOUR
+  // fresh submission right after you click through from the result panel.
+  // A fresh Submit in this tab means this Accepted is yours: sync it.
+  if (isArchiveView() && !hasFreshSubmit()) {
+    console.info("[LeetFlow] Accepted ignored: this looks like an old submission. Submit a new solution to sync it.");
     return;
   }
   if (!hasSubmissionEvidence()) {

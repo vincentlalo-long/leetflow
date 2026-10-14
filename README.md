@@ -113,10 +113,10 @@ Load the generated `dist/chrome/` folder via **Load unpacked**, or install `dist
    - `AMO_JWT_SECRET` — the JWT secret.
 5. Publish a release:
    ```bash
-   npm version 0.8.3 --no-git-tag-version   # AMO rejects a reused version
-   git commit -am "release: v0.8.3"
+   npm version 0.8.5 --no-git-tag-version   # AMO rejects a reused version
+   git commit -am "release: v0.8.5"
    git push
-   git tag v0.8.3 && git push origin v0.8.3
+   git tag v0.8.5 && git push origin v0.8.5
    ```
    The **Release** workflow runs the tests, builds the packages, publishes the Chrome `.zip`, then calls the **Sign Firefox Add-on** job which overwrites the Release's Firefox asset with the signed `.xpi`.
 
@@ -149,10 +149,10 @@ Temporary add-ons disappear when Firefox closes — expected while developing. N
 Every tag is signed once by AMO and **AMO rejects a reused version number**, so tag only when the build is ready:
 
 ```bash
-npm version 0.8.3 --no-git-tag-version
-git commit -am "release: v0.8.3"
+npm version 0.8.5 --no-git-tag-version
+git commit -am "release: v0.8.5"
 git push
-git tag v0.8.3 && git push origin v0.8.3
+git tag v0.8.5 && git push origin v0.8.5
 ```
 
 The Release workflow runs the tests, builds, publishes `leetflow-chrome-<tag>.zip`, then signs and attaches `leetflow-firefox-<tag>.xpi`.

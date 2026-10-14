@@ -73,8 +73,22 @@ function isInsideOverlay(node) {
 // A "Run" result says Accepted too, but it is not a submission. Only treat
 // results as real when a submit action just happened or LeetCode rendered
 // the submission-specific result node.
-const SUBMIT_WINDOW_MS = 3 * 60 * 1000;
+const SUBMIT_WINDOW_MS = 10 * 60 * 1000;
 let lastSubmitRequest = 0;
+
+function markNewSubmission() {
+  lastSubmitRequest = Date.now();
+  // The old "Accepted" banner can stay visible while the new submission is
+  // judging, so forget the previous accept — otherwise the false→true
+  // transition in syncIfAccepted never fires and no toast appears.
+  // (acceptedState is declared below; this only runs on user input, long
+  // after the script has been evaluated.)
+  try {
+    acceptedState = false;
+  } catch {
+    /* declared later — assigned once the script has fully loaded */
+  }
+}
 
 document.addEventListener(
   "click",
@@ -84,7 +98,7 @@ document.addEventListener(
     );
     if (!control) return;
     const label = String(control.textContent || control.getAttribute?.("aria-label") || "").trim();
-    if (/^(submit|提交|递交|submit\s*code)\b/i.test(label)) lastSubmitRequest = Date.now();
+    if (/^(submit|提交|递交|submit\s*code)\b/i.test(label)) markNewSubmission();
   },
   true
 );
@@ -93,7 +107,7 @@ document.addEventListener(
   "keydown",
   (event) => {
     if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
-      lastSubmitRequest = Date.now();
+      markNewSubmission();
     }
   },
   true
@@ -752,21 +766,38 @@ async function syncIfAccepted() {
   // Track every observation (even while prompting) so a stale "Accepted"
   // console left over from an earlier run never triggers a second sync.
   acceptedState = accepted;
+  if (isPrompting && !document.getElementById("leetflow-toast")) {
+    // The prompt was removed without going through closeToast (e.g. SPA
+    // navigation wiped it) — unstick so future submissions can prompt again.
+    isPrompting = false;
+  }
   if (isPrompting || isSyncing) return;
   if (!accepted || wasAccepted === true) return;
-  if (isArchiveView() || !hasSubmissionEvidence()) return;
+  if (isArchiveView()) {
+    console.info("[LeetFlow] Accepted ignored: submission archive views are not synced.");
+    return;
+  }
+  if (!hasSubmissionEvidence()) {
+    console.info("[LeetFlow] Accepted ignored: no submit detected in this tab. Submit from the problem page and keep the tab open.");
+    return;
+  }
 
   isSyncing = true;
   try {
     const problem = await metadata();
     if (!problem || !problem.code) {
+      console.warn("[LeetFlow] Accepted detected but no editor code was captured.");
+      showSyncError("Accepted detected, but LeetFlow couldn't read your code from the editor. Open the problem page and press Sync / Retry in the popup.");
       isSyncing = false;
       return;
     }
 
     const key = `${problem.slug}|${problem.language}|${hashString(problem.code)}`;
     if (key === lastKey) {
+      // Same code re-submitted — the background would only report
+      // "unchanged", so confirm that directly instead of staying silent.
       isSyncing = false;
+      showSyncSuccess("Already synced — nothing changed.");
       return;
     }
     lastKey = key;

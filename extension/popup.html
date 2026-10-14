@@ -8,6 +8,7 @@
 <body>
   <main>
     <header><strong>LeetFlow Sync</strong><span id="status">Loading…</span></header>
+    <div id="updateBanner" class="update-banner" hidden></div>
     
     <section id="summary"></section>
     <p id="lastsync"></p>
@@ -48,6 +49,7 @@
       <button id="options">Settings</button>
     </div>
     <p class="hint">Solve on LeetCode. Accepted solutions are queued and tracked automatically.</p>
+    <footer class="footer"><span>v<span id="version">…</span></span><button type="button" id="checkUpdate" class="linklike">Check for updates</button></footer>
   </main>
   <script type="module" src="popup.js"></script>
 </body>

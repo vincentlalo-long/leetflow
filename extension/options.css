@@ -6,3 +6,7 @@ button { padding: 9px 16px; border: 1px solid #1f883d; border-radius: 6px; color
 .save-row { margin-top: 8px; }
 #closeTab.secondary { margin-left: 8px; background: white; color: #24292f; border-color: #d0d7de; }
 #message { display: inline-block; margin-left: 12px; color: #1f883d; font-size: 14px; }
+.muted { color: #57606a; font-size: 13px; line-height: 1.5; }
+#exportBackup.secondary, .import-label { background: white; color: #24292f; border: 1px solid #d0d7de; border-radius: 6px; padding: 9px 16px; cursor: pointer; display: inline-block; }
+.import-label { margin-left: 8px; }
+#updateStatus a { color: #0969da; }

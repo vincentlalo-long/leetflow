@@ -1,4 +1,5 @@
 import { getRoadmapProgress } from "./roadmaps.js";
+import { describeSyncError } from "./queue.js";
 
 function send(type, payload = {}) {
   return new Promise((resolve) => {
@@ -87,9 +88,9 @@ async function refresh() {
 
   const notes = [];
   if (failed.length > 0 && failed[0].error) {
-    notes.push(`<div class="note error">⚠️ ${escapeHtml(failed[0].error)}</div>`);
+    notes.push(`<div class="note error">⚠️ ${escapeHtml(describeSyncError(failed[0].error))}</div>`);
   } else if (state.lastError) {
-    notes.push(`<div class="note error">⚠️ ${escapeHtml(state.lastError)}</div>`);
+    notes.push(`<div class="note error">⚠️ ${escapeHtml(describeSyncError(state.lastError))}</div>`);
   }
 
   const clearFailedButton = document.querySelector("#clearFailed");
@@ -277,6 +278,64 @@ document.querySelector("#exportAnki").addEventListener("click", async () => {
 
 document.querySelector("#options").addEventListener("click", () => chrome.runtime.openOptionsPage());
 
+async function showVersion() {
+  try {
+    const response = await send("get-version");
+    if (response?.ok && response.version) {
+      document.querySelector("#version").textContent = response.version;
+    } else {
+      document.querySelector("#version").textContent = chrome.runtime.getManifest?.().version || "…";
+    }
+  } catch {
+    try {
+      document.querySelector("#version").textContent = chrome.runtime.getManifest?.().version || "…";
+    } catch {
+      /* version label is cosmetic */
+    }
+  }
+}
+
+function renderUpdateBanner(info) {
+  const banner = document.querySelector("#updateBanner");
+  if (!banner) return;
+  if (!info || !info.updateAvailable) {
+    banner.hidden = true;
+    banner.replaceChildren();
+    return;
+  }
+  banner.hidden = false;
+  const link = document.createElement("a");
+  link.href = info.url || "https://github.com/vincentlalo-long/leetflow/releases";
+  link.target = "_blank";
+  link.rel = "noreferrer";
+  link.textContent = `Update ${info.current || "?"} → ${info.latest} available — download here`;
+  banner.replaceChildren(document.createTextNode("🎉 "), link);
+}
+
+async function checkUpdate(force = false) {
+  const button = document.querySelector("#checkUpdate");
+  try {
+    if (button) button.disabled = true;
+    const response = await send("check-update", { force });
+    if (response?.ok) {
+      renderUpdateBanner(response);
+      if (!response.updateAvailable && force) {
+        showFeedback(`Already on the latest version (${response.current}).`);
+      }
+    } else if (force) {
+      showFeedback(`⚠️ Could not check — ${response?.error || "unknown error"}`, "error");
+    }
+  } catch (error) {
+    if (force) showFeedback(`⚠️ Could not check — ${error?.message || String(error)}`, "error");
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+document.querySelector("#checkUpdate")?.addEventListener("click", () => checkUpdate(true));
+
+showVersion();
+checkUpdate(false);
 refresh().catch((error) => {
   document.querySelector("#status").textContent = "Error";
   setHtml(document.querySelector("#summary"),

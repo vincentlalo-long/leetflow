@@ -1,4 +1,5 @@
-import { loadState } from "./storage.js";
+import { exportBackup, importBackup, loadState } from "./storage.js";
+import { checkForUpdate, getExtensionVersion } from "./update.js";
 import {
   QUEUE_ALARM,
   clearFailedJobs,
@@ -14,7 +15,10 @@ import {
 } from "./queue.js";
 
 export const REVIEW_ALARM = "leetflow-review-badge";
+export const UPDATE_ALARM = "leetflow-update-check";
 const BADGE_COLOR = "#cf222e";
+const UPDATE_CACHE_MS = 6 * 60 * 60 * 1000;
+let cachedUpdate = null;
 
 export async function refreshBadge() {
   if (!chrome.action?.setBadgeText) return;
@@ -31,9 +35,21 @@ export async function refreshBadge() {
 function scheduleBadgeAlarm() {
   try {
     chrome.alarms?.create?.(REVIEW_ALARM, { periodInMinutes: 60 });
+    chrome.alarms?.create?.(UPDATE_ALARM, { periodInMinutes: 360 });
   } catch {
     /* alarms are optional */
   }
+}
+
+export async function getUpdateStatus(force = false) {
+  const now = Date.now();
+  if (!force && cachedUpdate && now - cachedUpdate.checkedAt < UPDATE_CACHE_MS) {
+    return cachedUpdate;
+  }
+  const current = getExtensionVersion();
+  const result = await checkForUpdate(current);
+  cachedUpdate = { ...result, checkedAt: now };
+  return cachedUpdate;
 }
 
 function withBadge(promise) {
@@ -68,6 +84,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return respond(sendResponse, findSolutionFor(message));
     case "get-state":
       return respond(sendResponse, loadState().then((state) => ({ state })));
+    case "get-version":
+      return respond(sendResponse, Promise.resolve({ version: getExtensionVersion() }));
+    case "check-update":
+      return respond(sendResponse, getUpdateStatus(Boolean(message?.force)));
     case "get-review":
       return respond(sendResponse, getReviewState());
     case "grade-review":
@@ -76,6 +96,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return respond(sendResponse, withBadge(skipReviewJob(message.key)));
     case "restore-reviews":
       return respond(sendResponse, withBadge(restoreReviewJobs()));
+    case "export-backup":
+      return respond(
+        sendResponse,
+        exportBackup(getExtensionVersion()).then((backup) => ({ backup }))
+      );
+    case "import-backup":
+      return respond(
+        sendResponse,
+        withBadge(importBackup(message?.backup).then(() => ({})))
+      );
     default:
       return false;
   }
@@ -98,6 +128,7 @@ if (chrome.alarms?.onAlarm) {
   chrome.alarms.onAlarm.addListener((alarm) => {
     if (alarm?.name === QUEUE_ALARM) onWake();
     if (alarm?.name === REVIEW_ALARM) refreshBadge();
+    if (alarm?.name === UPDATE_ALARM) getUpdateStatus().catch(() => {});
   });
 }
 

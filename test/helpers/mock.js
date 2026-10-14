@@ -77,7 +77,8 @@ export function installChromeMock(initialStore = {}) {
       onStartup: { addListener: (fn) => (listeners.startup = fn) },
       onInstalled: { addListener: (fn) => (listeners.installed = fn) },
       openOptionsPage: () => {},
-      getURL: (path) => `chrome-extension://test/${path}`
+      getURL: (path) => `chrome-extension://test/${path}`,
+      getManifest: () => ({ version: "0.8.3" })
     },
     storage: {
       local: {

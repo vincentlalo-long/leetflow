@@ -19,6 +19,14 @@
       <button id="closeTab" class="secondary" type="button" hidden>Close this tab</button>
       <span id="message"></span>
     </div>
+    <hr>
+    <h2>Backup &amp; updates</h2>
+    <p class="muted">Back up before updating the extension. Reinstalling over the old version keeps your data, but <strong>Remove</strong> wipes it.</p>
+    <p class="muted">Version: <strong>v<span id="version">…</span></strong> · <span id="updateStatus">Checking for updates…</span></p>
+    <div class="save-row">
+      <button id="exportBackup" class="secondary" type="button">Export backup (JSON)</button>
+      <label class="import-label">Import backup <input id="importBackup" type="file" accept="application/json,.json" hidden></label>
+    </div>
   </main>
   <script type="module" src="options.js"></script>
 </body>

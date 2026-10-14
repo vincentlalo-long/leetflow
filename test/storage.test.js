@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { DEFAULT_SETTINGS, loadState, migrateLegacyState, saveState } from "../extension/storage.js";
+import { DEFAULT_SETTINGS, buildBackup, loadState, migrateLegacyState, parseBackup, saveState } from "../extension/storage.js";
 import { installChromeMock } from "./helpers/mock.js";
 
 test("loadState returns defaults when storage is empty", async () => {
@@ -111,4 +111,33 @@ test("loadState keeps existing multi-approach records untouched", async () => {
   assert.equal(record.solutions[0].code, "first");
   assert.equal(record.solutions[1].notes, "n");
   assert.equal(record.code, "second", "the stored mirror is not rewritten on read");
+});
+
+test("backup export/import round-trips problems and settings", async () => {
+  installChromeMock({
+    settings: { githubToken: "t", owner: "o", repo: "r" },
+    problems: { "1:Python3": { number: "1", language: "Python3", title: "Two Sum", code: "x" } },
+    queue: [{ key: "1:Python3", status: "pending" }]
+  });
+
+  const state = await loadState();
+  const backup = buildBackup(state, "0.8.3");
+  assert.equal(backup.app, "leetflow");
+  assert.equal(backup.version, "0.8.3");
+  assert.equal(backup.state.problems["1:Python3"].title, "Two Sum");
+
+  installChromeMock({});
+  const { importBackup } = await import("../extension/storage.js");
+  await importBackup(backup);
+  const restored = await loadState();
+  assert.equal(restored.problems["1:Python3"].title, "Two Sum");
+  assert.equal(restored.settings.repo, "r");
+  assert.equal(restored.queue.length, 1);
+});
+
+test("parseBackup accepts a bare state object and rejects garbage", () => {
+  const parsed = parseBackup({ problems: {}, queue: [] });
+  assert.deepEqual(parsed.queue, []);
+  assert.throws(() => parseBackup(null), /corrupted/);
+  assert.throws(() => parseBackup({ queue: "nope" }), /invalid queue/);
 });

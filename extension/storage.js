@@ -173,3 +173,56 @@ export async function saveState(state) {
   await promisifyStorage("set", payload);
   return payload;
 }
+
+export function buildBackup(state, version = "") {
+  const safe = state || {};
+  return {
+    app: "leetflow",
+    version: String(version || ""),
+    exportedAt: new Date().toISOString(),
+    state: {
+      settings: { ...DEFAULT_SETTINGS, ...(safe.settings || {}) },
+      queue: Array.isArray(safe.queue) ? safe.queue : [],
+      problems: safe.problems && typeof safe.problems === "object" ? safe.problems : {},
+      lastSync: safe.lastSync || null,
+      lastError: typeof safe.lastError === "string" ? safe.lastError : ""
+    }
+  };
+}
+
+export function parseBackup(payload) {
+  const root = payload && typeof payload === "object" ? payload : null;
+  if (!root) throw new Error("This backup file is empty or corrupted.");
+  const inner = root.state && typeof root.state === "object" ? root.state : root;
+  if (!inner || typeof inner !== "object") {
+    throw new Error("This backup file is empty or corrupted.");
+  }
+  if (inner.problems && typeof inner.problems !== "object") {
+    throw new Error("This backup file has an invalid problems section.");
+  }
+  if (inner.queue && !Array.isArray(inner.queue)) {
+    throw new Error("This backup file has an invalid queue section.");
+  }
+  const problems = {};
+  for (const [key, value] of Object.entries(inner.problems || {})) {
+    if (!value || typeof value !== "object") continue;
+    problems[key] = normalizeProblem(value);
+  }
+  return {
+    settings: { ...DEFAULT_SETTINGS, ...(inner.settings || {}) },
+    queue: Array.isArray(inner.queue) ? inner.queue : [],
+    problems,
+    lastSync: inner.lastSync || null,
+    lastError: typeof inner.lastError === "string" ? inner.lastError : ""
+  };
+}
+
+export async function exportBackup(version = "") {
+  const state = await loadState();
+  return buildBackup(state, version);
+}
+
+export async function importBackup(payload) {
+  const state = parseBackup(payload);
+  return saveState(state);
+}

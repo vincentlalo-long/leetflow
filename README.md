@@ -68,6 +68,14 @@ No Firefox account and no AMO login are required to install a signed `.xpi`. Fir
 
 Every release carries exactly two assets: `leetflow-chrome-<tag>.zip` (load unpacked) and `leetflow-firefox-<tag>.xpi` (already signed by Mozilla).
 
+### Updating (without losing data)
+
+These installs do **not** auto-update, and the extension has no in-place updater:
+
+- **Firefox:** download the new `leetflow-firefox-<tag>.xpi` from Releases, then `about:addons → gear → Install Add-on From File…` and install **over** the old version. Your queue, problems and settings in `storage.local` are kept because the add-on ID is unchanged.
+- **Chrome:** download the new `leetflow-chrome-<tag>.zip`, extract it, then `chrome://extensions → Update` (store installs) or re-`Load unpacked` over the same folder.
+- **Never press Remove/Uninstall** — that wipes local data. For safety, use `Settings → Export backup (JSON)` before updating; the popup footer shows the running version and a `Check for updates` banner when a newer GitHub Release exists.
+
 ### Option 2: Build from Source
 
 ```bash
@@ -105,10 +113,10 @@ Load the generated `dist/chrome/` folder via **Load unpacked**, or install `dist
    - `AMO_JWT_SECRET` — the JWT secret.
 5. Publish a release:
    ```bash
-   npm version 0.7.1 --no-git-tag-version   # AMO rejects a reused version
-   git commit -am "release: v0.7.1"
+   npm version 0.8.3 --no-git-tag-version   # AMO rejects a reused version
+   git commit -am "release: v0.8.3"
    git push
-   git tag v0.7.1 && git push origin v0.7.1
+   git tag v0.8.3 && git push origin v0.8.3
    ```
    The **Release** workflow runs the tests, builds the packages, publishes the Chrome `.zip`, then calls the **Sign Firefox Add-on** job which overwrites the Release's Firefox asset with the signed `.xpi`.
 
@@ -141,10 +149,10 @@ Temporary add-ons disappear when Firefox closes — expected while developing. N
 Every tag is signed once by AMO and **AMO rejects a reused version number**, so tag only when the build is ready:
 
 ```bash
-npm version 0.7.2 --no-git-tag-version
-git commit -am "release: v0.7.2"
+npm version 0.8.3 --no-git-tag-version
+git commit -am "release: v0.8.3"
 git push
-git tag v0.7.2 && git push origin v0.7.2
+git tag v0.8.3 && git push origin v0.8.3
 ```
 
 The Release workflow runs the tests, builds, publishes `leetflow-chrome-<tag>.zip`, then signs and attaches `leetflow-firefox-<tag>.xpi`.

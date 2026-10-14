@@ -36,3 +36,7 @@ button:hover { background: #ddf4ff; }
 .schedule-date { color: #57606a; white-space: nowrap; }
 .schedule li.due .schedule-date { color: #cf222e; font-weight: 600; }
 .schedule-empty { color: #57606a; }
+.update-banner { font-size: 11px; padding: 8px; border-radius: 6px; margin-bottom: 12px; line-height: 1.4; background: #ddf4ff; border: 1px solid #0969da; color: #0550ae; }
+.update-banner a { color: #0550ae; font-weight: 600; }
+.footer { display: flex; justify-content: space-between; align-items: center; color: #57606a; font-size: 11px; margin-top: 10px; }
+.linklike { width: auto; margin-top: 0; padding: 2px 6px; font-size: 11px; border: none; background: none; color: #0969da; text-decoration: underline; cursor: pointer; }

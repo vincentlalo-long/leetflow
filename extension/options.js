@@ -46,6 +46,50 @@ async function load() {
     if (node.type === "checkbox") node.checked = Boolean(settings[field]);
     else node.value = settings[field] || "";
   }
+  try {
+    const version = await send("get-version");
+    if (version?.ok && version.version) $("version").textContent = version.version;
+    else $("version").textContent = chrome.runtime.getManifest?.().version || "…";
+  } catch {
+    try {
+      $("version").textContent = chrome.runtime.getManifest?.().version || "…";
+    } catch {
+      /* cosmetic */
+    }
+  }
+  try {
+    const update = await send("check-update");
+    const node = $("updateStatus");
+    if (update?.ok && update.updateAvailable) {
+      node.innerHTML = "";
+      node.append(`Update ${update.current} → ${update.latest} available — `);
+      const link = document.createElement("a");
+      link.href = update.url || "https://github.com/vincentlalo-long/leetflow/releases";
+      link.target = "_blank";
+      link.rel = "noreferrer";
+      link.textContent = "download here";
+      node.append(link);
+    } else if (update?.ok) {
+      node.textContent = `You're on the latest version (${update.current}).`;
+    } else {
+      node.textContent = "Could not check for updates right now.";
+    }
+  } catch {
+    const node = $("updateStatus");
+    if (node) node.textContent = "Could not check for updates right now.";
+  }
+}
+
+function downloadBackup(backup) {
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `leetflow-backup-${new Date().toISOString().slice(0, 10)}.json`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  URL.revokeObjectURL(url);
 }
 
 async function save() {
@@ -69,7 +113,14 @@ async function save() {
   try {
     await checkRepository(settings.githubToken, settings.owner, settings.repo);
   } catch (error) {
-    setMessage(`Saved, but the repository check failed: ${error.message}`, "warn");
+    const status = error?.status;
+    const raw = error?.message || String(error);
+    const friendly =
+      status === 401 ? "GitHub rejected the token (401). It is invalid or expired."
+      : status === 404 ? "Repository not found (404). Check the owner/repository names."
+      : status === 403 ? `${raw} — you may have hit the GitHub rate limit.`
+      : raw;
+    setMessage(`Saved, but the repository check failed: ${friendly}`, "warn");
     return;
   }
 
@@ -103,6 +154,33 @@ $("closeTab").addEventListener("click", () => {
     window.close();
   } catch {
     /* the browser refused to close the tab — the hint above stays visible */
+  }
+});
+
+$("exportBackup")?.addEventListener("click", async () => {
+  const response = await send("export-backup");
+  if (!response?.ok) {
+    setMessage(response?.error || "Could not export the backup.", "error");
+    return;
+  }
+  downloadBackup(response.backup);
+  setMessage(`Backup exported (${Object.keys(response.backup?.state?.problems || {}).length} problems).`, "ok");
+});
+
+$("importBackup")?.addEventListener("change", async (event) => {
+  const file = event.target?.files?.[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const backup = JSON.parse(text);
+    const response = await send("import-backup", { backup });
+    if (!response?.ok) throw new Error(response?.error || "Could not import the backup.");
+    await load();
+    setMessage("Backup imported. Your data has been restored.", "ok");
+  } catch (error) {
+    setMessage(error?.message || String(error), "error");
+  } finally {
+    event.target.value = "";
   }
 });
 

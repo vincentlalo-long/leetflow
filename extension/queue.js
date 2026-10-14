@@ -40,6 +40,32 @@ export function problemKey(problem) {
   return `${problem?.number ?? ""}:${problem?.language ?? ""}`;
 }
 
+export function describeSyncError(message) {
+  const text = String(message ?? "");
+  if (/missing github token|add one in settings/i.test(text)) {
+    return "GitHub token is missing. Open Settings and paste a personal access token.";
+  }
+  if (/configure the github owner|not connected yet/i.test(text)) {
+    return "GitHub is not connected yet. Open Settings to add your token, owner and repository.";
+  }
+  if (/github 401|bad credentials/i.test(text)) {
+    return "GitHub rejected the token (401). The token is invalid or expired — create a new one and save it in Settings.";
+  }
+  if (/github 403.*rate limit|github rate limit/i.test(text)) {
+    return `${text} — the queue will retry automatically. No action needed.`;
+  }
+  if (/github 404/i.test(text)) {
+    return `${text} — check the owner/repository/branch names in Settings.`;
+  }
+  if (/could not resolve the problem number/i.test(text)) {
+    return `${text} Open the problem page and sync again.`;
+  }
+  if (/no solution code was captured/i.test(text)) {
+    return "No solution code was captured for this submission. Open the accepted submission and sync again.";
+  }
+  return text;
+}
+
 export function isConfigured(settings) {
   return Boolean(settings?.githubToken && settings?.owner && settings?.repo);
 }

@@ -29,7 +29,7 @@ test("isUpdateAvailable detects a newer release", () => {
 
 test("getExtensionVersion reads the manifest", () => {
   installChromeMock({});
-  assert.equal(getExtensionVersion(), "0.8.5");
+  assert.equal(getExtensionVersion(), "0.8.6");
 });
 
 test("fetchLatestRelease parses the GitHub payload", async () => {

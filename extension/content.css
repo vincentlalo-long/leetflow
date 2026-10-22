@@ -4,6 +4,8 @@
   bottom: 24px;
   right: 24px;
   width: 340px;
+  max-width: calc(100vw - 32px);
+  overflow: hidden;
   background: #ffffff;
   color: #1f2328;
   border: 1px solid #d0d7de;
@@ -92,8 +94,10 @@
 
 .leetflow-complexity {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin-top: 8px;
+  min-width: 0;
 }
 
 .leetflow-approach-field span {
@@ -105,7 +109,9 @@
 }
 
 .leetflow-cx-field {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 100%;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -116,11 +122,14 @@
 
 .leetflow-cx-field span {
   min-width: 42px;
+  flex-shrink: 0;
 }
 
 .leetflow-cx-field input {
-  flex: 1;
+  flex: 1 1 0;
   min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
   border: 1px solid #d0d7de;
   border-radius: 6px;
   padding: 5px 8px;

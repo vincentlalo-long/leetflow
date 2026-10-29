@@ -1,5 +1,5 @@
 import { ensureReview } from "./review.js";
-import { getRoadmaps } from "./roadmaps.js";
+import { ROADMAPS, getRoadmaps } from "./roadmaps.js";
 
 let problems = [];
 let feedbackTimer = 0;
@@ -268,6 +268,13 @@ async function load(feedback) {
 
   render();
   if (feedback) showFeedback(feedback.text, feedback.kind);
+}
+
+for (const plan of ROADMAPS) {
+  const option = document.createElement("option");
+  option.value = plan.name;
+  option.textContent = plan.name;
+  document.querySelector("#roadmap").append(option);
 }
 
 for (const id of ["search", "difficulty", "roadmap", "review"]) {

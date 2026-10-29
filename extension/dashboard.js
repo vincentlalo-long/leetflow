@@ -1,3 +1,4 @@
+import { getRoadmapProgress } from "./roadmaps.js";
 import {
   collectActivity,
   difficultyStats,
@@ -98,6 +99,32 @@ function renderHeatmap(problems, today) {
     `${weeks[0][0].date} → ${weeks[weeks.length - 1][6].date}`;
 }
 
+function renderPlans(problems) {
+  const plans = getRoadmapProgress(problems);
+  const started = plans.filter((plan) => plan.solved > 0).length;
+  document.querySelector("#plansSummary").textContent =
+    `${started} of ${plans.length} plans started`;
+
+  const radius = 34;
+  const circumference = 2 * Math.PI * radius;
+  const markup = plans
+    .map((plan) => {
+      const offset = circumference * (1 - plan.percent / 100);
+      return `<div class="plan">
+        <svg viewBox="0 0 84 84" role="img" aria-label="${escapeHtml(plan.name)}: ${plan.percent}% complete">
+          <circle class="ring-track" cx="42" cy="42" r="${radius}"></circle>
+          <circle class="ring-fill" cx="42" cy="42" r="${radius}" stroke="${plan.color}" stroke-dasharray="${circumference.toFixed(1)}" stroke-dashoffset="${offset.toFixed(1)}" transform="rotate(-90 42 42)"></circle>
+          <text x="42" y="43" text-anchor="middle" dominant-baseline="middle" class="ring-label">${plan.percent}%</text>
+        </svg>
+        <strong>${escapeHtml(plan.name)}</strong>
+        <span class="muted">${plan.solved} / ${plan.total} solved</span>
+      </div>`;
+    })
+    .join("");
+
+  setHtml(document.querySelector("#plans"), markup);
+}
+
 function renderGrades(problems) {
   const grades = gradeStats(problems);
   document.querySelector("#recall").textContent = grades.total
@@ -170,6 +197,7 @@ async function load() {
 
     renderKpis(problems, today);
     renderHeatmap(problems, today);
+    renderPlans(problems);
     renderGrades(problems);
     renderDifficulty(problems);
     renderTags(problems);

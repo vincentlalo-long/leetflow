@@ -13,10 +13,10 @@ A browser extension that syncs accepted LeetCode solutions to a GitHub repositor
 - **Multi-Approach**: Label each submission's approach (e.g. Brute Force, HashMap) in the notes prompt — every approach is archived as its own file (`two-sum-hashmap.cpp`) and listed in the problem README instead of overwriting the previous one.
 - **Solve telemetry**: Records elapsed time and submission attempts (WA/TLE/AC) for each problem.
 - **Review queue**: Spaced repetition review scheduling in the extension popup with Again, Hard, Good, and Easy grades.
-- **Roadmap tracking**: Basic progress tracking for Blind 75 and NeetCode 150 problem lists.
+- **Study plan tracking**: Recognizes official LeetCode plans (LeetCode 75, Top Interview 150, Top 100 Liked) plus Blind 75 and NeetCode 150, with per-plan progress in the popup and dashboard.
 - **Interview mode**: Optional toggle to blur topic tags on problem statements to prevent spoilers while practicing.
 - **Export to Anki**: Export synced problems to a TSV file for import into Anki flashcards.
-- **Review dashboard**: A dedicated page with a 52-week activity heatmap, current/longest streaks, recall rate, and grade, difficulty, and topic breakdowns computed from local review history.
+- **Review dashboard**: A dedicated page with study plan progress rings, a 52-week activity heatmap, current/longest streaks, recall rate, and grade, difficulty, and topic breakdowns computed from local review history.
 - **Problem library**: A searchable, filterable list of synced problems where you can revisit solutions and edit notes or complexity; saving queues a fresh GitHub commit for that problem.
 
 ## Workflow
@@ -115,10 +115,10 @@ Load the generated `dist/chrome/` folder via **Load unpacked**, or install `dist
    - `AMO_JWT_SECRET` — the JWT secret.
 5. Publish a release:
    ```bash
-   npm version 0.8.7 --no-git-tag-version   # AMO rejects a reused version
-   git commit -am "release: v0.8.7"
+   npm version 0.8.8 --no-git-tag-version   # AMO rejects a reused version
+   git commit -am "release: v0.8.8"
    git push
-   git tag v0.8.7 && git push origin v0.8.7
+   git tag v0.8.8 && git push origin v0.8.8
    ```
    The **Release** workflow runs the tests, builds the packages, publishes the Chrome `.zip`, then calls the **Sign Firefox Add-on** job which overwrites the Release's Firefox asset with the signed `.xpi`.
 
@@ -151,10 +151,10 @@ Temporary add-ons disappear when Firefox closes — expected while developing. N
 Every tag is signed once by AMO and **AMO rejects a reused version number**, so tag only when the build is ready:
 
 ```bash
-npm version 0.8.7 --no-git-tag-version
-git commit -am "release: v0.8.7"
+npm version 0.8.8 --no-git-tag-version
+git commit -am "release: v0.8.8"
 git push
-git tag v0.8.7 && git push origin v0.8.7
+git tag v0.8.8 && git push origin v0.8.8
 ```
 
 The Release workflow runs the tests, builds, publishes `leetflow-chrome-<tag>.zip`, then signs and attaches `leetflow-firefox-<tag>.xpi`.

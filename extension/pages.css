@@ -30,6 +30,15 @@ button { font: inherit; }
 .legend { display: flex; align-items: center; gap: 4px; justify-content: flex-end; margin-top: 8px; color: #57606a; font-size: 11px; }
 .legend .cell { width: 10px; height: 10px; }
 
+.plan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 12px; }
+.plan { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px 8px; border: 1px solid #eaeef2; border-radius: 10px; text-align: center; }
+.plan svg { width: 84px; height: 84px; }
+.ring-track { fill: none; stroke: #eaeef2; stroke-width: 8; }
+.ring-fill { fill: none; stroke-width: 8; stroke-linecap: round; transition: stroke-dashoffset 0.4s ease; }
+.ring-label { font-size: 15px; font-weight: 600; fill: #24292f; }
+.plan strong { font-size: 12px; margin-top: 2px; }
+.plan .muted { font-size: 11px; }
+
 .bar-row { display: grid; grid-template-columns: 60px 1fr 40px; align-items: center; gap: 8px; margin: 8px 0; font-size: 12px; }
 .bar-track { height: 8px; background: #eaeef2; border-radius: 4px; overflow: hidden; }
 .bar-fill { height: 100%; border-radius: 4px; }

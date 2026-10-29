@@ -113,14 +113,17 @@ async function refresh() {
     ${notes.join("")}`);
 
   const roadmapStats = getRoadmapProgress(problems);
-
-  document.querySelector("#b75-count").textContent =
-    `${roadmapStats.blind75.solved}/${roadmapStats.blind75.total} (${roadmapStats.blind75.percent}%)`;
-  document.querySelector("#b75-bar").style.width = `${roadmapStats.blind75.percent}%`;
-
-  document.querySelector("#nc150-count").textContent =
-    `${roadmapStats.neetcode150.solved}/${roadmapStats.neetcode150.total} (${roadmapStats.neetcode150.percent}%)`;
-  document.querySelector("#nc150-bar").style.width = `${roadmapStats.neetcode150.percent}%`;
+  setHtml(
+    document.querySelector("#roadmapList"),
+    roadmapStats
+      .map(
+        (plan) => `<div class="roadmap-item">
+          <div class="roadmap-label"><span>${escapeHtml(plan.name)}</span><span>${plan.solved}/${plan.total} (${plan.percent}%)</span></div>
+          <div class="progress-bar"><div class="progress-fill" style="width: ${plan.percent}%; background: ${plan.color};"></div></div>
+        </div>`
+      )
+      .join("")
+  );
 
   const review = await send("get-review");
   if (!review.ok) throw new Error(review.error || "Could not read the review queue.");

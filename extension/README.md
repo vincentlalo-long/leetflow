@@ -67,8 +67,20 @@ The review data is local to the browser profile. Export/sync of review state is 
 
 The popup links to two extension pages:
 
-- **Review dashboard** — 52-week activity heatmap, current and longest streaks, recall rate, and breakdowns by grade, difficulty, and topic. Older records without review history fall back to their last grade.
-- **Problem library** — search and filter synced problems by difficulty, roadmap, or review state. Each solution can be expanded to view its code and edit notes, time, and space complexity. Saving updates local storage and queues a commit so the problem README on GitHub is regenerated.
+- **Review dashboard** — study plan progress rings, 52-week activity heatmap, current and longest streaks, recall rate, and breakdowns by grade, difficulty, and topic. Older records without review history fall back to their last grade.
+- **Problem library** — search and filter synced problems by difficulty, study plan, or review state. Each solution can be expanded to view its code and edit notes, time, and space complexity. Saving updates local storage and queues a commit so the problem README on GitHub is regenerated.
+
+### Study plans
+
+Problems are matched by LeetCode number against five built-in plans:
+
+- LeetCode 75
+- Top Interview 150
+- Top 100 Liked
+- Blind 75
+- NeetCode 150
+
+The popup shows a compact progress bar per plan, the dashboard renders each plan as a progress ring, and problem pages in the library show a badge for every plan they belong to. The official LeetCode sets live in `plans.js`, exported from LeetCode's public `studyPlanV2Detail` GraphQL query; update that file when LeetCode edits a plan.
 
 ## Generated files
 
@@ -86,6 +98,7 @@ The root index has clickable topic anchors. Problem README files include the Lee
 
 - The unpacked MVP uses a manually configured GitHub token. Replace this with GitHub Device Flow before public distribution.
 - LeetCode changes its DOM frequently. Accepted detection and editor extraction may need selector updates.
+- Study plan membership is embedded from LeetCode's published plan data; plans LeetCode adds or edits later require updating `plans.js`.
 - The first version targets the common LeetCode Monaco editor path and may not capture every language/editor state.
 - Images remain in the fetched problem description URL for now; downloading them into `assets/` is a later hardening step.
 

@@ -10,6 +10,7 @@ import {
   restoreReviewJobs,
   retryQueue,
   runQueue,
+  saveProblemEdits,
   saveSettings,
   skipReviewJob
 } from "./queue.js";
@@ -78,6 +79,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       return respond(sendResponse, withBadge(retryQueue()));
     case "clear-failed":
       return respond(sendResponse, clearFailedJobs());
+    case "save-problem":
+      return respond(
+        sendResponse,
+        withBadge(saveProblemEdits(message.key, message.index, message.fields))
+      );
     case "save-settings":
       return respond(sendResponse, saveSettings(message.settings));
     case "get-solution":

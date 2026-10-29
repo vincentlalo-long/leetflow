@@ -1,6 +1,6 @@
 {
   "name": "leetflow",
-  "version": "0.8.6",
+  "version": "0.8.7",
   "private": true,
   "type": "module",
   "description": "Browser extension that syncs accepted LeetCode solutions to a GitHub repository.",

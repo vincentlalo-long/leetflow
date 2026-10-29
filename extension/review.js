@@ -57,6 +57,7 @@ export function gradeReview(problem, grade) {
   const definition = GRADES[grade] || GRADES.good;
   const current = ensureReview(problem);
   const stability = Math.max(1, current.review.stability * definition.factor + definition.interval / 2);
+  const history = Array.isArray(current.review.history) ? current.review.history : [];
   return {
     ...current,
     review: {
@@ -64,7 +65,8 @@ export function gradeReview(problem, grade) {
       due: addDays(new Date(), stability),
       stability,
       reviews: current.review.reviews + 1,
-      lastGrade: grade
+      lastGrade: grade,
+      history: [...history, { at: new Date().toISOString(), grade }]
     }
   };
 }

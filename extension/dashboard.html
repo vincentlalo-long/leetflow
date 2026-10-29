@@ -1,0 +1,55 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>LeetFlow Sync — Review dashboard</title>
+  <link rel="stylesheet" href="pages.css">
+</head>
+<body>
+  <main>
+    <header class="page-header">
+      <div>
+        <h1>Review dashboard</h1>
+        <p class="subtitle">Solve and review activity, streaks, and recall quality from your local LeetFlow data.</p>
+      </div>
+      <button id="refresh" class="btn-secondary" type="button">Refresh</button>
+    </header>
+
+    <p id="error" class="feedback error" hidden></p>
+    <section class="kpis" id="kpis"></section>
+
+    <section class="card">
+      <div class="card-head"><h2>Activity</h2><span class="muted" id="activityRange"></span></div>
+      <div class="heatmap" id="heatmap"></div>
+      <div class="legend">
+        <span>Less</span>
+        <i class="cell level0"></i>
+        <i class="cell level1"></i>
+        <i class="cell level2"></i>
+        <i class="cell level3"></i>
+        <i class="cell level4"></i>
+        <span>More</span>
+      </div>
+    </section>
+
+    <div class="grid-2">
+      <section class="card">
+        <div class="card-head"><h2>Review grades</h2><span class="muted" id="recall"></span></div>
+        <div id="grades"></div>
+      </section>
+      <section class="card">
+        <div class="card-head"><h2>Difficulty</h2></div>
+        <div id="difficulty"></div>
+      </section>
+    </div>
+
+    <section class="card">
+      <div class="card-head"><h2>Top topics</h2></div>
+      <div id="tags"></div>
+    </section>
+
+    <p id="empty" class="empty" hidden>No data yet. Solve a problem or grade a review to populate the dashboard.</p>
+  </main>
+  <script type="module" src="dashboard.js"></script>
+</body>
+</html>

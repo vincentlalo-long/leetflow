@@ -276,6 +276,14 @@ document.querySelector("#exportAnki").addEventListener("click", async () => {
   exportToAnki(Object.values(response.state.problems || {}));
 });
 
+function openPage(file) {
+  const url = chrome.runtime.getURL(file);
+  if (chrome.tabs?.create) chrome.tabs.create({ url });
+  else window.open(url, "_blank");
+}
+
+document.querySelector("#dashboard").addEventListener("click", () => openPage("dashboard.html"));
+document.querySelector("#library").addEventListener("click", () => openPage("library.html"));
 document.querySelector("#options").addEventListener("click", () => chrome.runtime.openOptionsPage());
 
 async function showVersion() {

@@ -312,12 +312,79 @@ export async function enqueue(rawProblem) {
       job.error = "";
       job.attempts = 0;
       job.updatedAt = now;
+      job.edit = false;
     } else {
       state.queue.push({ key, problem: reviewed, attempts: 0, status: "pending", createdAt: now });
     }
     state.lastError = "";
     await saveState(state);
     return result;
+  });
+
+  if (response.status !== "unchanged" && response.configured && response.autoSync) {
+    response.syncResult = await runQueue();
+  }
+  return response;
+}
+
+export async function saveProblemEdits(key, index, fields) {
+  const response = await withStateLock(async () => {
+    const state = await loadState();
+    const problem = state.problems?.[key];
+    if (!problem) throw new Error("This problem is no longer in your local archive.");
+
+    const solutions = solutionsOf(problem);
+    const position = Number(index);
+    const target = Number.isInteger(position) ? solutions[position] : null;
+    if (!target) throw new Error("This solution is no longer in your local archive.");
+
+    const pick = (value, fallback) => (typeof value === "string" ? value : String(fallback || ""));
+    const notes = pick(fields?.notes, target.notes);
+    const timeComplexity = pick(fields?.timeComplexity, target.timeComplexity);
+    const spaceComplexity = pick(fields?.spaceComplexity, target.spaceComplexity);
+
+    const configured = isConfigured(state.settings);
+    const autoSync = Boolean(state.settings.autoSync);
+    const unchanged =
+      notes === String(target.notes || "") &&
+      timeComplexity === String(target.timeComplexity || "") &&
+      spaceComplexity === String(target.spaceComplexity || "");
+    if (unchanged) {
+      return { ok: true, configured, autoSync, status: "unchanged", syncResult: null };
+    }
+
+    solutions[position] = { ...target, notes, timeComplexity, spaceComplexity };
+    const record = {
+      ...problem,
+      solutions,
+      notes,
+      timeComplexity,
+      spaceComplexity
+    };
+    state.problems[key] = record;
+
+    const now = new Date().toISOString();
+    const job = state.queue.find((item) => item?.key === key);
+    if (job) {
+      job.problem = record;
+      job.status = "pending";
+      job.error = "";
+      job.attempts = 0;
+      job.updatedAt = now;
+      job.edit = true;
+    } else {
+      state.queue.push({
+        key,
+        problem: record,
+        attempts: 0,
+        status: "pending",
+        createdAt: now,
+        edit: true
+      });
+    }
+    state.lastError = "";
+    await saveState(state);
+    return { ok: true, configured, autoSync, status: "queued-update", syncResult: null };
   });
 
   if (response.status !== "unchanged" && response.configured && response.autoSync) {
@@ -510,6 +577,7 @@ async function drainQueue() {
 
   for (const job of jobs) {
     try {
+      const isEdit = Boolean(job.edit);
       let problem = normalizeIncoming(job.problem);
       if (!hasProblemNumber(problem.number)) {
         problem = await resolveProblemMetadata(problem);
@@ -519,7 +587,7 @@ async function drainQueue() {
           `Could not resolve the problem number for "${problem.slug || problem.title || "unknown"}".`
         );
       }
-      if (!String(problem.code || "").length) {
+      if (!isEdit && !String(problem.code || "").length) {
         throw new Error("No solution code was captured for this submission.");
       }
 
@@ -528,11 +596,19 @@ async function drainQueue() {
       const placeholder =
         previousKey && previousKey !== key ? state.problems[previousKey] : null;
       const existing = problems[key] || placeholder;
-      const effective = inheritMissing(existing, problem);
+      const effective = isEdit ? problem : inheritMissing(existing, problem);
       const record = { ...(existing || {}), ...effective, syncedAt: new Date().toISOString() };
       if (existing?.review) record.review = existing.review;
       else if (placeholder?.review) record.review = placeholder.review;
-      record.solutions = upsertSolution(existing, effective);
+      if (isEdit) {
+        const edited =
+          Array.isArray(problem.solutions) && problem.solutions.length
+            ? problem.solutions
+            : solutionsOf(existing);
+        record.solutions = edited.map((solution) => ({ ...solution }));
+      } else {
+        record.solutions = upsertSolution(existing, effective);
+      }
       const reviewed = ensureReview(record);
 
       job.key = key;

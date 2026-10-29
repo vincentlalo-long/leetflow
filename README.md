@@ -16,6 +16,8 @@ A browser extension that syncs accepted LeetCode solutions to a GitHub repositor
 - **Roadmap tracking**: Basic progress tracking for Blind 75 and NeetCode 150 problem lists.
 - **Interview mode**: Optional toggle to blur topic tags on problem statements to prevent spoilers while practicing.
 - **Export to Anki**: Export synced problems to a TSV file for import into Anki flashcards.
+- **Review dashboard**: A dedicated page with a 52-week activity heatmap, current/longest streaks, recall rate, and grade, difficulty, and topic breakdowns computed from local review history.
+- **Problem library**: A searchable, filterable list of synced problems where you can revisit solutions and edit notes or complexity; saving queues a fresh GitHub commit for that problem.
 
 ## Workflow
 
@@ -113,10 +115,10 @@ Load the generated `dist/chrome/` folder via **Load unpacked**, or install `dist
    - `AMO_JWT_SECRET` — the JWT secret.
 5. Publish a release:
    ```bash
-   npm version 0.8.5 --no-git-tag-version   # AMO rejects a reused version
-   git commit -am "release: v0.8.5"
+   npm version 0.8.7 --no-git-tag-version   # AMO rejects a reused version
+   git commit -am "release: v0.8.7"
    git push
-   git tag v0.8.5 && git push origin v0.8.5
+   git tag v0.8.7 && git push origin v0.8.7
    ```
    The **Release** workflow runs the tests, builds the packages, publishes the Chrome `.zip`, then calls the **Sign Firefox Add-on** job which overwrites the Release's Firefox asset with the signed `.xpi`.
 
@@ -149,10 +151,10 @@ Temporary add-ons disappear when Firefox closes — expected while developing. N
 Every tag is signed once by AMO and **AMO rejects a reused version number**, so tag only when the build is ready:
 
 ```bash
-npm version 0.8.5 --no-git-tag-version
-git commit -am "release: v0.8.5"
+npm version 0.8.7 --no-git-tag-version
+git commit -am "release: v0.8.7"
 git push
-git tag v0.8.5 && git push origin v0.8.5
+git tag v0.8.7 && git push origin v0.8.7
 ```
 
 The Release workflow runs the tests, builds, publishes `leetflow-chrome-<tag>.zip`, then signs and attaches `leetflow-firefox-<tag>.xpi`.

@@ -63,6 +63,13 @@ Every accepted problem is added to the local review queue in extension storage.
 
 The review data is local to the browser profile. Export/sync of review state is intentionally not part of the first extension MVP.
 
+## Dashboard and problem library
+
+The popup links to two extension pages:
+
+- **Review dashboard** — 52-week activity heatmap, current and longest streaks, recall rate, and breakdowns by grade, difficulty, and topic. Older records without review history fall back to their last grade.
+- **Problem library** — search and filter synced problems by difficulty, roadmap, or review state. Each solution can be expanded to view its code and edit notes, time, and space complexity. Saving updates local storage and queues a commit so the problem README on GitHub is regenerated.
+
 ## Generated files
 
 ```text

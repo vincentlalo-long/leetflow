@@ -1,0 +1,47 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>LeetFlow Sync — Problem library</title>
+  <link rel="stylesheet" href="pages.css">
+</head>
+<body>
+  <main>
+    <header class="page-header">
+      <div>
+        <h1>Problem library</h1>
+        <p class="subtitle">Search synced problems, revisit solutions, and update notes or complexity. Saving re-syncs that problem to GitHub.</p>
+      </div>
+      <button id="refresh" class="btn-secondary" type="button">Refresh</button>
+    </header>
+
+    <div id="feedback" class="feedback" hidden></div>
+
+    <section class="card toolbar">
+      <input id="search" type="search" placeholder="Search number, title, topic, or approach…" autocomplete="off">
+      <select id="difficulty">
+        <option value="">All difficulties</option>
+        <option value="Easy">Easy</option>
+        <option value="Medium">Medium</option>
+        <option value="Hard">Hard</option>
+        <option value="Unknown">Unknown</option>
+      </select>
+      <select id="roadmap">
+        <option value="">All roadmaps</option>
+        <option value="Blind 75">Blind 75</option>
+        <option value="NeetCode 150">NeetCode 150</option>
+      </select>
+      <select id="review">
+        <option value="">All review states</option>
+        <option value="due">Due now</option>
+        <option value="scheduled">Scheduled</option>
+        <option value="skipped">No review</option>
+      </select>
+    </section>
+
+    <p class="muted" id="count"></p>
+    <section id="list"></section>
+  </main>
+  <script type="module" src="library.js"></script>
+</body>
+</html>

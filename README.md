@@ -19,6 +19,16 @@ A browser extension that syncs accepted LeetCode solutions to a GitHub repositor
 - **Review dashboard**: A dedicated page with study plan progress rings, a 52-week activity heatmap, current/longest streaks, recall rate, and grade, difficulty, and topic breakdowns computed from local review history.
 - **Problem library**: A searchable, filterable list of synced problems where you can revisit solutions and edit notes or complexity; saving queues a fresh GitHub commit for that problem.
 
+## Screenshots
+
+**Review dashboard** — current and longest streaks, a 52-week activity heatmap, study plan progress rings, recall rate and grade, plus difficulty and topic breakdowns, all computed from your local review history.
+
+<p><img src="docs/images/dashboard.jpg" alt="LeetFlow review dashboard with streaks, activity heatmap, study plan rings and review breakdowns" width="860"></p>
+
+**Problem library** — search and filter your synced problems by difficulty, study plan, or review state. Expand any problem to revisit the code, correct notes or complexity, and re-sync it to GitHub with one click.
+
+<p><img src="docs/images/library.jpg" alt="LeetFlow problem library with search, study plan filters, review badges and editable solution notes" width="860"></p>
+
 ## Workflow
 
 ```text
